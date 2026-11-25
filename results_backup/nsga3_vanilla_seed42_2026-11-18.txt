@@ -1,0 +1,48 @@
+== SKU1 run 1
+exact front: 34721 points | approximate set: 1665 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1665 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.01793
+eps+ (normalised)                   : 0.18033
+== SKU1 run 2
+exact front: 34721 points | approximate set: 1939 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1939 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03891
+eps+ (normalised)                   : 0.65947
+== SKU1 run 3
+exact front: 34721 points | approximate set: 1190 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1190 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02120
+eps+ (normalised)                   : 0.16431
+== SKU2 run 1
+exact front: 19370 points | approximate set: 1084 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1084 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02925
+eps+ (normalised)                   : 0.38542
+== SKU2 run 2
+exact front: 19370 points | approximate set: 939 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :    939 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03748
+eps+ (normalised)                   : 0.42068
+== SKU2 run 3
+exact front: 19370 points | approximate set: 1008 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1008 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03218
+eps+ (normalised)                   : 0.44918

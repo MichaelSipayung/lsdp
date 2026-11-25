@@ -1,0 +1,5 @@
+instance: SKU2 T=48 L=4 moq=r=3 mu=12.2 sigma=3.6 MS=1.40 seed=42 I0=68
+outer grid: dSS=1.000 dSOT=0.050 -> 263 combinations, 246 distinct requirement vectors
+labels generated (total): 40145031   candidate points: 55498   Pareto front: 19370
+time: grouping 0.001s  inner DPs 10.131s  final filter 0.312s  TOTAL 10.445s
+wrote hasil/sku2_s42.csv and hasil/sku2_s42.csv.demand.csv

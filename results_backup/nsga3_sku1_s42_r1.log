@@ -1,0 +1,4 @@
+gen    100  evals     45500  archive     56  elapsed      6.1s
+gen    200  evals     91000  archive    123  elapsed     12.0s
+gen    300  evals    136500  archive    161  elapsed     18.1s
+gen    400  evals    182000  archive    144  elapsed     24.5s

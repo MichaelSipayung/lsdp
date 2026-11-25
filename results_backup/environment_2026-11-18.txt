@@ -1,0 +1,12 @@
+date: 2026-11-18T05:45:33+07:00
+Linux cika-1701 7.0.0-43-generic #43-Ubuntu SMP PREEMPT_DYNAMIC Fri Oct 23 13:25:25 UTC 2026 x86_64 GNU/Linux
+g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+1
+               total        used        free      shared  buff/cache   available
+Mem:            14Gi       2.0Gi       7.9Gi       274Mi       5.6Gi        12Gi
+CPU(s):                                  12
+Model name:                              12th Gen Intel(R) Core(TM) i5-1235U
+Thread(s) per core:                      2
+CPU(s) scaling MHz:                      72%
+CPU max MHz:                             4400.0000
+CPU min MHz:                             400.0000

@@ -1,0 +1,192 @@
+== repair=0 SKU1 seed1 vs exact continuous
+exact front: 52715 points | approximate set: 1995 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1995 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02109
+eps+ (normalised)                   : 0.16376
+== repair=0 SKU1 seed1 vs exact grid
+exact front: 47179 points | approximate set: 1995 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1970 (98.75%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02059
+eps+ (normalised)                   : 0.16376
+== repair=0 SKU1 seed2 vs exact continuous
+exact front: 35987 points | approximate set: 1663 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1663 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02578
+eps+ (normalised)                   : 0.30009
+== repair=0 SKU1 seed2 vs exact grid
+exact front: 28155 points | approximate set: 1663 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1663 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02433
+eps+ (normalised)                   : 0.30009
+== repair=0 SKU1 seed3 vs exact continuous
+exact front: 47592 points | approximate set: 1552 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1544 (99.48%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02612
+eps+ (normalised)                   : 0.38969
+== repair=0 SKU1 seed3 vs exact grid
+exact front: 41706 points | approximate set: 1552 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1293 (83.31%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.02604
+eps+ (normalised)                   : 0.38969
+== repair=0 SKU2 seed1 vs exact continuous
+exact front: 47276 points | approximate set: 1110 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1110 (100.00%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.04300
+eps+ (normalised)                   : 0.59231
+== repair=0 SKU2 seed1 vs exact grid
+exact front: 25170 points | approximate set: 1110 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1075 (96.85%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.04752
+eps+ (normalised)                   : 0.59231
+== repair=0 SKU2 seed2 vs exact continuous
+exact front: 36131 points | approximate set: 1297 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1216 (93.75%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03717
+eps+ (normalised)                   : 0.35950
+== repair=0 SKU2 seed2 vs exact grid
+exact front: 18347 points | approximate set: 1297 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :   1204 (92.83%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.04185
+eps+ (normalised)                   : 0.35950
+== repair=0 SKU2 seed3 vs exact continuous
+exact front: 46875 points | approximate set: 894 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :    833 (93.18%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03145
+eps+ (normalised)                   : 0.46823
+== repair=0 SKU2 seed3 vs exact grid
+exact front: 24938 points | approximate set: 894 points
+approx points lying on exact front :      0 (0.00%)
+approx points dominated by exact    :    830 (92.84%)
+exact points dominated by approx    :      0  (must be 0)
+exact points recovered              : 0.000% of the exact front
+IGD+ (normalised)                   : 0.03346
+eps+ (normalised)                   : 0.46823
+== repair=1 SKU1 seed1 vs exact continuous
+exact front: 52715 points | approximate set: 11016 points
+approx points lying on exact front :     83 (0.75%)
+approx points dominated by exact    :  10856 (98.55%)
+exact points dominated by approx    :     13  (must be 0)
+exact points recovered              : 0.157% of the exact front
+IGD+ (normalised)                   : 0.01201
+eps+ (normalised)                   : 0.02316
+== repair=1 SKU1 seed1 vs exact grid
+exact front: 47179 points | approximate set: 11016 points
+approx points lying on exact front :    232 (2.11%)
+approx points dominated by exact    :  10620 (96.41%)
+exact points dominated by approx    :     61  (must be 0)
+exact points recovered              : 0.492% of the exact front
+IGD+ (normalised)                   : 0.01122
+eps+ (normalised)                   : 0.02209
+== repair=1 SKU1 seed2 vs exact continuous
+exact front: 35987 points | approximate set: 8734 points
+approx points lying on exact front :     33 (0.38%)
+approx points dominated by exact    :   8686 (99.45%)
+exact points dominated by approx    :      4  (must be 0)
+exact points recovered              : 0.092% of the exact front
+IGD+ (normalised)                   : 0.01492
+eps+ (normalised)                   : 0.05303
+== repair=1 SKU1 seed2 vs exact grid
+exact front: 28155 points | approximate set: 8734 points
+approx points lying on exact front :    137 (1.57%)
+approx points dominated by exact    :   8356 (95.67%)
+exact points dominated by approx    :     28  (must be 0)
+exact points recovered              : 0.487% of the exact front
+IGD+ (normalised)                   : 0.01275
+eps+ (normalised)                   : 0.02322
+== repair=1 SKU1 seed3 vs exact continuous
+exact front: 47592 points | approximate set: 10480 points
+approx points lying on exact front :     81 (0.77%)
+approx points dominated by exact    :  10338 (98.65%)
+exact points dominated by approx    :      9  (must be 0)
+exact points recovered              : 0.170% of the exact front
+IGD+ (normalised)                   : 0.01183
+eps+ (normalised)                   : 0.02271
+== repair=1 SKU1 seed3 vs exact grid
+exact front: 41706 points | approximate set: 10480 points
+approx points lying on exact front :    177 (1.69%)
+approx points dominated by exact    :   9604 (91.64%)
+exact points dominated by approx    :     47  (must be 0)
+exact points recovered              : 0.424% of the exact front
+IGD+ (normalised)                   : 0.01111
+eps+ (normalised)                   : 0.02161
+== repair=1 SKU2 seed1 vs exact continuous
+exact front: 47276 points | approximate set: 7114 points
+approx points lying on exact front :     80 (1.12%)
+approx points dominated by exact    :   7003 (98.44%)
+exact points dominated by approx    :     18  (must be 0)
+exact points recovered              : 0.169% of the exact front
+IGD+ (normalised)                   : 0.01413
+eps+ (normalised)                   : 0.04151
+== repair=1 SKU2 seed1 vs exact grid
+exact front: 25170 points | approximate set: 7114 points
+approx points lying on exact front :    147 (2.07%)
+approx points dominated by exact    :   6484 (91.14%)
+exact points dominated by approx    :     48  (must be 0)
+exact points recovered              : 0.584% of the exact front
+IGD+ (normalised)                   : 0.01195
+eps+ (normalised)                   : 0.02287
+== repair=1 SKU2 seed2 vs exact continuous
+exact front: 36131 points | approximate set: 5003 points
+approx points lying on exact front :     68 (1.36%)
+approx points dominated by exact    :   4583 (91.61%)
+exact points dominated by approx    :     21  (must be 0)
+exact points recovered              : 0.188% of the exact front
+IGD+ (normalised)                   : 0.01674
+eps+ (normalised)                   : 0.04788
+== repair=1 SKU2 seed2 vs exact grid
+exact front: 18347 points | approximate set: 5003 points
+approx points lying on exact front :    107 (2.14%)
+approx points dominated by exact    :   4386 (87.67%)
+exact points dominated by approx    :     37  (must be 0)
+exact points recovered              : 0.583% of the exact front
+IGD+ (normalised)                   : 0.01526
+eps+ (normalised)                   : 0.02622
+== repair=1 SKU2 seed3 vs exact continuous
+exact front: 46875 points | approximate set: 6551 points
+approx points lying on exact front :    107 (1.63%)
+approx points dominated by exact    :   6005 (91.67%)
+exact points dominated by approx    :     25  (must be 0)
+exact points recovered              : 0.228% of the exact front
+IGD+ (normalised)                   : 0.01377
+eps+ (normalised)                   : 0.02873
+== repair=1 SKU2 seed3 vs exact grid
+exact front: 24938 points | approximate set: 6551 points
+approx points lying on exact front :    132 (2.01%)
+approx points dominated by exact    :   5914 (90.28%)
+exact points dominated by approx    :     34  (must be 0)
+exact points recovered              : 0.529% of the exact front
+IGD+ (normalised)                   : 0.01242
+eps+ (normalised)                   : 0.02311
