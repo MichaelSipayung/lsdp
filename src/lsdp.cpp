@@ -175,6 +175,8 @@ vector<double> requirement(const Instance& in, double SS, double SOT) {
 // entry with sx' <= sx has ito' >= ito  -> O(k log n) instead of O(n).
 bool g_fast = true;  // false: reference implementation (linear scans), for verification
 bool g_lemmaD = true;  // restrict ordering transitions by Lemma D (order only when needed)
+constexpr double kEps = 1.0;  // positivity threshold: Ibar(t) >= kEps (domain of ITO)
+bool g_probes = false;  // continuous mode: also add sector probes (not needed, see Theorem 3)
 bool g_noito = false;  // drop ITO (bi-objective POC/HC sub-model, used for the MILP comparison)
 double g_fixSS = -1, g_fixSOT = -1;  // evaluate a single outer point (SS, SOT) if set
 using KStairs = vector<vector<Label>>;
@@ -225,6 +227,8 @@ vector<InnerPoint> solve_inner(const Instance& in, const vector<double>& beta,
   for (int tau = 1; tau <= Tp; ++tau) {
     const int t = tau + in.L;
     const double base = in.I0 - 0.5 * (in.cumD[t - 1] + in.cumD[t]);
+    const double base_next =
+        (tau < Tp) ? in.I0 - 0.5 * (in.cumD[t] + in.cumD[t + 1]) : 0.0;
     const double num = in.D[t] + in.sigma;
     int jmin = int(lower_bound(cx.states.begin(), cx.states.end(),
                                (long)ceil(beta[tau] - 1e-9)) - cx.states.begin());
@@ -238,12 +242,20 @@ vector<InnerPoint> solve_inner(const Instance& in, const vector<double>& beta,
         const long x = cx.states[j];
         const long q = x - xp;
         if (!cx.valid_order(q)) continue;
-        // Lemma D (order only when needed): an order at tau is Pareto-relevant only if
-        // the requirement would be violated without it (or Ibar would drop below 1).
-        if (g_lemmaD && q > 0 && !((double)xp + 1e-9 < beta[tau] || base + (double)xp < 1.0))
-          break;  // all larger j also have q > 0
+        // Lemma D (order only when needed). Postponing the order to tau+1 (or dropping it
+        // if tau = T') lowers the average stock in periods tau+L and tau+L+1 only. It is a
+        // strictly dominating move iff (a) the requirement at tau holds without the order,
+        // (b) Ibar(tau+L) >= eps without it and (c) Ibar(tau+L+1) >= eps after it; for (c)
+        // the lower bound base_next + xp + q/2 is used. (c) is monotone in q, hence once a
+        // q is prunable all larger q are prunable too.
+        if (g_lemmaD && q > 0) {
+          const bool a = (double)xp + 1e-9 >= beta[tau];
+          const bool b = base + (double)xp >= kEps;
+          const bool c = (tau == Tp) || (base_next + (double)xp + 0.5 * (double)q >= kEps);
+          if (a && b && c) break;
+        }
         const double Ibar = base + 0.5 * (double)(xp + x);
-        if (Ibar < 1.0) continue;  // ITO undefined for empty stock
+        if (Ibar < kEps) continue;  // ITO undefined for empty stock
         const double term = g_noito ? 0.0 : num / Ibar;
         for (int a = 0; a < (int)src.size(); ++a) {
           Label L{src[a].k + (q > 0), src[a].sx + (double)x, src[a].ito + term, i, a};
@@ -330,7 +342,7 @@ static void brute_rec(const Instance& in, const vector<double>& beta, long Xmax,
     const long x = xp + q;
     if (x + 1e-9 < beta[tau]) continue;
     const double Ibar = base + 0.5 * (double)(xp + x);
-    if (Ibar < 1.0) continue;
+    if (Ibar < kEps) continue;
     Q[tau] = q;
     brute_rec(in, beta, Xmax, tau + 1, x, k + (q > 0), sx + x,
               ito + (in.D[t] + in.sigma) / Ibar, Q, all, C0, ito_early);
@@ -389,7 +401,7 @@ int run_verify(int nseeds) {
       vector<double> beta = requirement(in, SS, SOT);
       double bmax = *max_element(beta.begin() + 1, beta.end());
       long bmaxc = (long)ceil(bmax);
-      long Xmax_dp = max(0L, bmaxc) + max(in.moq, in.r);       // lemma bound
+      long Xmax_dp = max(0L, bmaxc) + max(in.moq, in.r) + (long)ceil(2 * kEps);  // Lemma 2
       long Xmax_bf = max(0L, bmaxc) + 3 * max(in.moq, in.r);   // deliberately larger
       g_fast = true;  auto A = solve_inner(in, beta, Xmax_dp);
       g_fast = false; g_lemmaD = false; auto A2 = solve_inner(in, beta, Xmax_dp);
@@ -494,7 +506,7 @@ vector<OuterCand> cell_candidates(const Instance& in, const vector<long>& lattic
         ang.push_back(th > 0 ? th - M_PI : th + M_PI);
       }
     }
-    if (ang.empty()) continue;
+    if (!g_probes || ang.empty()) continue;  // vertices suffice (Theorem 3)
     sort(ang.begin(), ang.end());
     ang.erase(unique(ang.begin(), ang.end(), [](double x, double y) { return fabs(x - y) < 1e-12; }),
               ang.end());
@@ -582,7 +594,7 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
     const vector<long>& key = G[gi].first;
     vector<double> beta(key.begin(), key.end());
     double bmax = *max_element(beta.begin() + 1, beta.end());
-    long Xmax = max(0L, (long)ceil(bmax)) + max(in.moq, in.r);
+    long Xmax = max(0L, (long)ceil(bmax)) + max(in.moq, in.r) + (long)ceil(2 * kEps);  // Lemma 2
     size_t lc = 0;
     auto pts = solve_inner(in, beta, Xmax, &lc);
     labs[gi] = lc;
@@ -688,6 +700,9 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
 // (i) the rounded requirement vector must be among those produced by the vertices,
 // (ii) its B = SS + mu*SOT must not exceed the best B recorded for that vector.
 int run_verify_cont(int sku, int T, unsigned seed, long nsamples, const Overrides& ov) {
+  // Numerical check of Theorem 3: for every (SS,SOT) in the domain there is an
+  // arrangement vertex v whose rounded requirement vector is componentwise <= that of
+  // (SS,SOT) (hence a superset of feasible plans) and whose B = SS + mu*SOT is >=.
   Instance in = make_instance(sku, T, seed, ov);
   auto b1 = requirement(in, in.mu * in.MS, 0.0), b2 = requirement(in, 0.0, in.MS);
   double bmax = max(*max_element(b1.begin() + 1, b1.end()), *max_element(b2.begin() + 1, b2.end()));
@@ -696,10 +711,7 @@ int run_verify_cont(int sku, int T, unsigned seed, long nsamples, const Override
     long need = (long)ceil(b - 1e-7);
     if (need <= 0) return 0;
     auto it = lower_bound(lat.begin(), lat.end(), need);
-    if (it == lat.end()) {
-      fprintf(stderr, "internal error: requirement %.3f beyond lattice range\n", b);
-      exit(3);
-    }
+    if (it == lat.end()) { fprintf(stderr, "lattice range\n"); exit(3); }
     return *it;
   };
   auto keyOf = [&](double SS, double SOT) {
@@ -708,32 +720,39 @@ int run_verify_cont(int sku, int T, unsigned seed, long nsamples, const Override
     for (size_t i = 1; i < beta.size(); ++i) k[i] = ceil_reach(beta[i]);
     return k;
   };
+  bool save = g_probes; g_probes = false;
+  auto C = cell_candidates(in, lat);  // vertices only
+  g_probes = save;
   map<vector<long>, double> best;
-  auto C = cell_candidates(in, lat);
-  size_t nvert = 0;
   for (const auto& oc : C) {
-    nvert += oc.attained;
     auto k = keyOf(oc.SS, oc.SOT);
     auto it = best.find(k);
     if (it == best.end() || oc.Bsup > it->second) best[k] = oc.Bsup;
   }
-  vector<int> V(nvert);
+  vector<pair<double, vector<long>>> V;  // sorted by B descending
+  for (auto& [k, B] : best) V.push_back({B, k});
+  sort(V.begin(), V.end(), [](auto& a, auto& b) { return a.first > b.first; });
   mt19937_64 g(seed + 99);
   uniform_real_distribution<double> u(0.0, 1.0);
-  long missing = 0, exceed = 0;
+  long fail = 0;
   for (long s = 0; s < nsamples; ++s) {
     double SOT = in.MS * u(g), SS = in.mu * (in.MS - SOT) * u(g);
-    if (s % 4 == 0) SS = in.mu * (in.MS - SOT);  // also probe the upper boundary
+    if (s % 4 == 0) SS = in.mu * (in.MS - SOT);  // probe the upper boundary as well
     auto k = keyOf(SS, SOT);
-    auto it = best.find(k);
-    if (it == best.end()) ++missing;
-    else if (SS + in.mu * SOT > it->second + 1e-7) ++exceed;
+    const double B = SS + in.mu * SOT;
+    bool ok = false;
+    for (auto& [Bv, kv] : V) {
+      if (Bv < B - 1e-9) break;  // remaining vertices have smaller B
+      bool le = true;
+      for (size_t i = 1; i < k.size() && le; ++i) le = kv[i] <= k[i];
+      if (le) { ok = true; break; }
+    }
+    fail += !ok;
   }
-  printf("verify-cont SKU%d T=%d seed=%u: %zu vertices, %zu distinct vectors; %ld random samples -> "
-         "missing vectors %ld, B exceeding vertex optimum %ld  => %s\n",
-         sku, T, seed, V.size(), best.size(), nsamples, missing, exceed,
-         (missing == 0 && exceed == 0) ? "OK" : "FAIL");
-  return (missing == 0 && exceed == 0) ? 0 : 1;
+  printf("verify-cont SKU%d T=%d seed=%u: %zu vertices, %zu distinct vectors; %ld random points -> "
+         "points without a dominating vertex: %ld  => %s\n",
+         sku, T, seed, C.size(), best.size(), nsamples, fail, fail == 0 ? "OK" : "FAIL");
+  return fail == 0 ? 0 : 1;
 }
 
 int main(int argc, char** argv) {
@@ -777,6 +796,8 @@ int main(int argc, char** argv) {
     else if (a == "--noito") g_noito = (stoi(v) != 0);
     else if (a == "--SS") g_fixSS = stod(v);
     else if (a == "--SOT") g_fixSOT = stod(v);
+    else if (a == "--probes") g_probes = (stoi(v) != 0);
+    else if (a == "--lemmaD") g_lemmaD = (stoi(v) != 0);
     else { fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
   if (mode == "verify") return run_verify(seeds);
