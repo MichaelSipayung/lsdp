@@ -1,0 +1,30 @@
+% Theorem environments and notation shared by main.tex and the appendix.
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{assumption}{Assumption}
+\renewcommand{\theassumption}{A\arabic{assumption}}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\Tp}{T'}
+\newcommand{\cQ}{\mathcal{Q}}
+\newcommand{\cL}{\mathcal{L}}
+\newcommand{\cumD}{\mathrm{cD}}
+\newcommand{\Ibar}{\bar I}
+\newcommand{\POC}{\mathrm{POC}}
+\newcommand{\HC}{\mathrm{HC}}
+\newcommand{\CSL}{\mathrm{CSL}}
+\newcommand{\ITO}{\mathrm{ITO}}
+\newcommand{\Ss}{\mathrm{SS}}
+\newcommand{\SOT}{\mathrm{SOT}}
+\newcommand{\MS}{\mathrm{MS}}
+\newcommand{\moq}{\mathrm{moq}}
+\newcommand{\eps}{\varepsilon}
+\crefname{assumption}{Assumption}{Assumptions}
+\newcommand{\lceilL}[1]{\lceil #1\rceil_{\cL}}
+

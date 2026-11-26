@@ -1,0 +1,418 @@
+% Body of the theoretical appendix; \input by main.tex.
+\noindent
+This appendix states the model in the form used by the algorithm, proves that the
+algorithm returns the exact Pareto front, and derives its complexity. Every result
+is linked to the experiment that checks it numerically (\cref{app:verification}).
+Throughout, \emph{dominance} means Pareto dominance: an outcome is weakly better in
+every objective and strictly better in at least one. Two plans with identical
+objective vectors are treated as one point of the front.
+
+%=====================================================================================
+\subsection{Model and notation}\label{app:model}
+
+The planning horizon has periods $t=1,\dots,T$ and a deterministic lead time $L$, so
+orders can be placed in the decision periods $\tau=1,\dots,\Tp$ with $\Tp=T-L$; an order
+placed in period $\tau$ is received in period $\tau+L$. Demand $D(t)\ge 0$ is given
+(one sample path of the stochastic demand), $\cumD(t)=\sum_{s\le t}D(s)$ with
+$\cumD(0)=0$, and $I_0$ is the initial stock. Order quantities lie in
+\begin{equation}
+  \cQ=\{0\}\cup\{\moq+a\,r : a\in\mathbb{N}_0\},
+\end{equation}
+where $\moq$ is the minimum order quantity and $r$ the rounding value. The outer
+(policy) variables are the safety stock $\Ss$ and the safety order time $\SOT$, taken
+from the domain
+\begin{equation}
+  \Omega=\{(\Ss,\SOT)\in\mathbb{R}^2_{\ge 0} : \SOT+\Ss/\mu\le\MS\},
+\end{equation}
+or from a finite grid in $\Omega$ (\emph{grid mode}).
+
+\paragraph{Cumulative reformulation.}
+Let $X(\tau)=\sum_{s\le\tau}Q(s)$, $X(0)=0$. Then the stock at the end of period
+$\tau+L$ is $I(\tau+L)=I_0+X(\tau)-\cumD(\tau+L)$, while $I(t)=I_0-\cumD(t)$ for
+$t\le L$ does not depend on the decisions. The service requirement
+$I(t)\ge\Ss+\SOT\cdot D(t)$ for $t=L+1,\dots,T$ becomes
+\begin{equation}\label{eq:req}
+  X(\tau)\ge\beta_\tau(\Ss,\SOT)
+  :=\Ss+\SOT\cdot D(\tau+L)+\cumD(\tau+L)-I_0,\qquad \tau=1,\dots,\Tp,
+\end{equation}
+and the average stock $\Ibar(t)=\tfrac12\bigl(I(t-1)+I(t)\bigr)$ in period $t=\tau+L$ is
+\begin{equation}\label{eq:ibar}
+  \Ibar(\tau+L)=b_\tau+\tfrac12\bigl(X(\tau-1)+X(\tau)\bigr),\qquad
+  b_\tau:=I_0-\tfrac12\bigl(\cumD(\tau+L-1)+\cumD(\tau+L)\bigr).
+\end{equation}
+Inventory turnover is defined only for positive average stock, so we impose
+$\Ibar(t)\ge\eps$ for all $t$, with a fixed threshold $\eps>0$ (the implementation
+uses $\eps=1$ unit).
+
+\paragraph{Objectives.}
+With $k=\#\{\tau : Q(\tau)>0\}$ the number of orders, the four objectives of
+Kania et al.\ read
+\begin{align}
+  \POC &= p\,X(\Tp)+c\,k &&\text{(min)},\label{eq:poc}\\
+  \HC  &= h\sum_{t=1}^{T}\Ibar(t)
+        = h\Bigl[C_0+\sum_{\tau=1}^{\Tp}X(\tau)-\tfrac12X(\Tp)\Bigr]
+        &&\text{(min)},\label{eq:hc}\\
+  \CSL &= \Phi\bigl(B/\sigma\bigr),\quad B:=\Ss+\mu\,\SOT &&\text{(max)},\label{eq:csl}\\
+  \ITO &= A_0+\sum_{\tau=1}^{\Tp}\frac{D(\tau+L)+\sigma}{\Ibar(\tau+L)} &&\text{(max)},\label{eq:ito}
+\end{align}
+where $C_0=\sum_{t\le L}\Ibar(t)+\sum_{\tau}b_\tau$ and
+$A_0=\sum_{t\le L}(D(t)+\sigma)/\Ibar(t)$ are constants. The second form of
+\eqref{eq:hc} follows from \eqref{eq:ibar} and $X(0)=0$. We write
+$F=(\POC,\HC,-\CSL,-\ITO)$, to be minimised componentwise.
+
+\paragraph{Assumptions.} Both instances studied satisfy the following.
+\begin{assumption}\label{as:initial}
+  $I(L)=I_0-\cumD(L)\ge 0$ and $\Ibar(t)\ge\eps$ for $t\le L$.
+\end{assumption}
+\begin{assumption}\label{as:lattice}
+  $\moq$ is a positive multiple of $r$, i.e.\ $\moq=m r$ with $m\in\mathbb{N}$.
+\end{assumption}
+Under \cref{as:lattice}, $\cQ\setminus\{0\}=\{r j : j\ge m\}$ is closed under addition,
+and the set of reachable cumulative quantities is
+$\cL=\{0\}\cup\{r j : j\ge m\}\subset r\mathbb{N}_0$. For $y\in\mathbb{R}$ let
+$\lceilL{y}=\min\{\ell\in\cL : \ell\ge y\}$. Because $X(\tau)\in\cL$,
+\begin{equation}\label{eq:kappa}
+  X(\tau)\ge\beta_\tau \iff X(\tau)\ge\kappa_\tau,\qquad
+  \kappa_\tau:=\lceilL{\beta_\tau}.
+\end{equation}
+We call $\kappa=(\kappa_1,\dots,\kappa_{\Tp})$ the \emph{rounded requirement vector}.
+
+%=====================================================================================
+\subsection{The inner problem as a multi-criteria shortest path}\label{app:inner}
+
+Fix an outer point $z=(\Ss,\SOT)$. Then $\CSL$ is constant, and a plan is a
+non-decreasing path $X(0)=0,X(1),\dots,X(\Tp)$ in $\cL$ whose increments lie in $\cQ$.
+Consider the layered directed acyclic graph whose nodes are pairs $(\tau,x)$ with
+$x\in\cL$, and whose arcs $(\tau-1,x')\to(\tau,x)$ exist when
+\begin{equation}\label{eq:arc}
+  x-x'\in\cQ,\qquad x\ge\kappa_\tau,\qquad b_\tau+\tfrac12(x'+x)\ge\eps .
+\end{equation}
+Each arc carries the additive cost vector
+\begin{equation}\label{eq:arccost}
+  \bigl(\,\mathbb{1}[x>x'],\; x,\; \tfrac{D(\tau+L)+\sigma}{b_\tau+\frac12(x'+x)}\,\bigr),
+\end{equation}
+and a path to $(\tau,x)$ accumulates the label $\ell=(k,W,R)$: the number of orders, the
+partial sum $W=\sum_{s\le\tau}X(s)$, and the partial turnover $R$. At a terminal node
+$(\Tp,x)$, \eqref{eq:poc}--\eqref{eq:ito} give
+\begin{equation}\label{eq:terminal}
+  \POC=p x+c k,\qquad \HC=h\bigl(C_0+W-\tfrac12x\bigr),\qquad \ITO=A_0+R .
+\end{equation}
+For a fixed terminal node these are strictly monotone in the label (increasing in $k$
+and $W$, increasing in $R$ for the maximised $\ITO$). Hence two paths ending at the same
+node compare in $F$ exactly as their labels compare under the order
+\begin{equation}
+  (k,W,R)\preceq(k',W',R')\iff k\le k',\ W\le W',\ R\ge R'.
+\end{equation}
+
+The label-setting algorithm processes the layers $\tau=1,\dots,\Tp$ in order, extends
+every stored label along every outgoing arc, and keeps at each node only the labels that
+are non-dominated under $\preceq$. The implementation stores them as one
+two-dimensional staircase in $(W,R)$ per value of $k$; this is a data structure for the
+same dominance test and does not affect correctness.
+
+%=====================================================================================
+\subsection{Reductions of the search space}\label{app:reductions}
+
+The algorithm searches a restricted graph: states are bounded above (\cref{lem:ub}), and
+ordering arcs that can never be Pareto-relevant are removed (\cref{lem:D}). Both lemmas
+are proved by exhibiting, for every plan that the restriction excludes, a feasible plan
+with the same outer point that dominates it. So no Pareto-optimal plan is excluded.
+
+\begin{lemma}[Upper bound on the cumulative quantity]\label{lem:ub}
+  Let $\hat\beta=\max\{0,\max_\tau\beta_\tau\}$ and let \cref{as:initial} hold. Every
+  feasible plan with $X(\Tp)\ge\hat\beta+\max\{\moq,r\}+2\eps$ is dominated by a feasible
+  plan with the same outer point. Consequently every Pareto-optimal plan satisfies
+  $X(\Tp)<\hat\beta+\max\{\moq,r\}+2\eps$.
+\end{lemma}
+
+\begin{proof}
+  Let $\tau^\ast$ be the last period with $Q(\tau^\ast)>0$ (it exists because
+  $X(\Tp)>0$), so $X(\tau)=X(\Tp)$ for $\tau\ge\tau^\ast$. Reduce the last order by
+  $\delta=r$ if $Q(\tau^\ast)\ge\moq+r$, and by $\delta=\moq$ (that is, remove it) if
+  $Q(\tau^\ast)=\moq$. In both cases $Q(\tau^\ast)-\delta\in\cQ$, $\delta\le\max\{\moq,r\}$,
+  and the new plan $X'$ equals $X$ before $\tau^\ast$ and $X-\delta$ from $\tau^\ast$ on;
+  it remains non-decreasing.
+
+  \emph{Feasibility.} For $\tau\ge\tau^\ast$,
+  $X'(\tau)=X(\Tp)-\delta\ge\hat\beta+2\eps\ge\beta_\tau+2\eps$, so \eqref{eq:req} holds and
+  $I'(\tau+L)=X'(\tau)-\beta_\tau+\Ss+\SOT\,D(\tau+L)\ge 2\eps$. Hence
+  $\Ibar'(t)\ge2\eps$ for $t>\tau^\ast+L$. In period $t=\tau^\ast+L$,
+  $\Ibar'(t)=\tfrac12\bigl(I(t-1)+I'(t)\bigr)\ge\tfrac12(0+2\eps)=\eps$, because $I(t-1)$
+  is unchanged and non-negative: by \cref{as:initial} if $\tau^\ast=1$, and by
+  \eqref{eq:req} in period $\tau^\ast-1$ otherwise. Earlier periods are unchanged.
+
+  \emph{Dominance.} $\POC$ decreases by $p\delta>0$ (and by a further $c$ if the order is
+  removed). By \eqref{eq:hc}, $\HC$ changes by
+  $h\bigl[-\delta(\Tp-\tau^\ast+1)+\delta/2\bigr]<0$. $\CSL$ is unchanged. Every
+  $\Ibar(t)$ either stays the same or decreases, so $\ITO$ does not decrease.
+\end{proof}
+
+The implementation therefore uses the state set
+$\{x\in\cL : x\le\lceil\hat\beta\rceil+\max\{\moq,r\}+\lceil2\eps\rceil\}$, where
+$\hat\beta$ is the maximum of $\beta_\tau$ over the whole outer domain. This is one
+superset that serves every outer point.
+
+\begin{lemma}[Order only when needed]\label{lem:D}
+  Let \cref{as:lattice} hold, and consider a feasible plan with an order $q=Q(\tau)>0$ and
+  $x'=X(\tau-1)$. Suppose that
+  \begin{enumerate}[label=(\alph*),nosep]
+    \item $x'\ge\beta_\tau$ (equivalently $x'\ge\kappa_\tau$),
+    \item $b_\tau+x'\ge\eps$, and
+    \item $\tau=\Tp$, or $b_{\tau+1}+x'+q/2\ge\eps$.
+  \end{enumerate}
+  Then the plan is dominated by a feasible plan with the same outer point.
+\end{lemma}
+
+\begin{proof}
+  If $\tau<\Tp$, move the order to the next period:
+  $Q'(\tau)=0$ and $Q'(\tau+1)=Q(\tau+1)+q$. This quantity lies in $\cQ$, either because
+  $Q(\tau+1)=0$ or because $\cQ\setminus\{0\}$ is closed under addition
+  (\cref{as:lattice}). If $\tau=\Tp$, drop the order. The new plan differs from the old
+  one only in $X'(\tau)=x'$.
+
+  \emph{Feasibility.} The requirement in period $\tau$ holds by (a), and all other
+  requirements are unchanged. By \eqref{eq:ibar} and (b),
+  $\Ibar'(\tau+L)=b_\tau+x'\ge\eps$. If $\tau<\Tp$, then $X(\tau+1)\ge X(\tau)=x'+q$, and (c)
+  gives $\Ibar'(\tau+L+1)=b_{\tau+1}+\tfrac12\bigl(x'+X(\tau+1)\bigr)\ge b_{\tau+1}+x'+q/2\ge\eps$.
+  No other period changes.
+
+  \emph{Dominance.} If $\tau<\Tp$, then $X(\Tp)$ is unchanged and $k$ stays the same or
+  decreases by one, so $\POC$ does not increase. $\sum_\tau X(\tau)$ decreases by $q$, so
+  $\HC$ decreases strictly. If $\tau=\Tp$, then $\POC$ decreases and $\HC$ changes by
+  $h(-q+q/2)<0$. $\CSL$ is unchanged, and $\ITO$ does not decrease because the average
+  stock in periods $\tau+L$ and $\tau+L+1$ does not increase.
+\end{proof}
+
+\begin{remark}[Why condition (c) is needed]\label{rem:c}
+  Postponing an order lowers the average stock in \emph{two} periods, $\tau+L$ and
+  $\tau+L+1$. A version of \cref{lem:D} that checks only (a) and (b) is not valid: the
+  postponed plan may violate $\Ibar\ge\eps$ in period $\tau+L+1$, so the claimed dominating
+  plan need not exist. In our experiments the earlier implementation, which omitted (c),
+  missed 2 of 19\,372 Pareto points in one instance (SKU~2, seed~42, grid mode; both
+  points have $\Ss=\SOT=0$, where the stock is lowest). The corrected rule reproduces the
+  front of the DP without any pruning. All 20 instances of experiment E2 (seeds 1--10) are
+  unaffected.
+\end{remark}
+
+\begin{remark}[Implementation]
+  For fixed $(\tau,x')$, condition (c) is monotone in $q$, and (a) and (b) do not depend
+  on $q$. Once an order size is prunable, every larger one is too. The implementation
+  enumerates target states in increasing order and stops at the first prunable order.
+\end{remark}
+
+%=====================================================================================
+\subsection{Exactness of the algorithm}\label{app:exact}
+
+\begin{theorem}[Exactness for a fixed outer point]\label{thm:exact}
+  Let \cref{as:initial,as:lattice} hold and fix $z\in\Omega$. Let $G_z$ be the graph of
+  \cref{app:inner} restricted to the state set of \cref{lem:ub}, with the arcs excluded by
+  \cref{lem:D} removed. The label-setting algorithm on $G_z$, followed by evaluating
+  \eqref{eq:terminal} and filtering non-dominated outcomes over all terminal nodes,
+  returns exactly the set of non-dominated outcome vectors of the inner problem at $z$.
+\end{theorem}
+
+\begin{proof}
+  \emph{(i) The restriction loses no Pareto-optimal plan.} A Pareto-optimal plan is not
+  dominated by any feasible plan. By \cref{lem:ub} it lies within the state bound, and by
+  \cref{lem:D} none of its arcs is pruned. So it is a path of $G_z$. Conversely, every
+  path of $G_z$ satisfies \eqref{eq:arc} and is therefore a feasible plan.
+
+  \emph{(ii) Label dominance is preserved by extension.} Arc existence and arc cost
+  depend only on the arc $(\tau-1,x')\to(\tau,x)$, not on the path that reached
+  $(\tau-1,x')$. This holds for the pruning rule as well, which depends on
+  $(\tau,x',x-x')$ only. If labels $\ell\preceq\ell'$ sit at the same node, extending both
+  along the same arc preserves $\preceq$, because the costs \eqref{eq:arccost} add
+  componentwise.
+
+  \emph{(iii) Induction over layers.} Suppose that at layer $\tau-1$ every path of $G_z$
+  to a node has a stored label at that node which weakly dominates it under $\preceq$.
+  Extending that stored label along the path's next arc weakly dominates the extended
+  path, by (ii). Either it is kept, or it is discarded because another kept label
+  dominates it; by transitivity, some kept label dominates the extended path. So the claim
+  holds at layer $\tau$, and it holds trivially at layer $0$.
+
+  \emph{(iv) Terminal evaluation.} By (iii) and the monotonicity of \eqref{eq:terminal},
+  every plan in $G_z$ ending at $(\Tp,x)$ is weakly dominated in $F$ by a returned outcome
+  at the same node. Combining this with (i), the returned set contains every
+  non-dominated outcome. It contains only feasible outcomes, so after the final filter it
+  equals the set of non-dominated outcome vectors.
+\end{proof}
+
+\begin{lemma}[The inner problem depends on $z$ only through $\kappa$]\label{lem:memo}
+  For $z,z'\in\Omega$ with $\kappa(z)=\kappa(z')$, the graphs $G_z$ and $G_{z'}$ coincide,
+  so the inner problems have the same outcomes in $(\POC,\HC,\ITO)$. If
+  $\kappa(z)\le\kappa(z')$ componentwise, every plan feasible at $z'$ is feasible at $z$.
+\end{lemma}
+
+\begin{proof}
+  By \eqref{eq:kappa}, $z$ enters \eqref{eq:arc} only through $\kappa_\tau$. Condition
+  (a) of \cref{lem:D} is equivalent to $x'\ge\kappa_\tau$, and conditions (b) and (c) do
+  not involve $z$. The objectives \eqref{eq:terminal} do not involve $z$, and the state
+  bound is common to all outer points. The second statement follows because
+  $x\ge\kappa_\tau(z')\ge\kappa_\tau(z)$.
+\end{proof}
+
+\begin{corollary}[Exact memoization]\label{cor:memo}
+  Among outer points with the same rounded requirement vector, only one with the largest
+  $B=\Ss+\mu\SOT$ can contribute to the Pareto front: the others have identical
+  $(\POC,\HC,\ITO)$ outcomes and a strictly smaller $\CSL$, because $\Phi$ is strictly
+  increasing. The algorithm therefore solves one inner problem per distinct vector
+  $\kappa$, attaches the largest $B$ of its class, and applies a final four-objective
+  filter over the classes. By \cref{thm:exact} the result is the exact front over the
+  outer candidate set.
+\end{corollary}
+
+%=====================================================================================
+\subsection{The continuous outer domain}\label{app:continuous}
+
+Each $\beta_\tau$ is affine in $z$: $\beta_\tau(z)=\Ss+D_\tau\SOT+c_\tau$ with
+$D_\tau=D(\tau+L)$ and $c_\tau=\cumD(\tau+L)-I_0$. Hence $\kappa_\tau(z)$ is piecewise
+constant. It can change only on the lines
+\begin{equation}
+  H_{\tau,\lambda}=\{z : \Ss+D_\tau\SOT=\lambda-c_\tau\},\qquad
+  \lambda\in\Lambda:=\cL\cap\bigl[0,\lceilL{\hat\beta}\bigr],
+\end{equation}
+where $\hat\beta$ is the maximum of $\beta_\tau$ over $\Omega$. Let $\mathcal{A}$ be the
+arrangement formed by these lines together with the three lines that bound $\Omega$
+($\Ss=0$, $\SOT=0$, $\SOT+\Ss/\mu=\MS$). Let $V$ be the finite set of its vertices,
+that is, the intersection points of two non-parallel lines of $\mathcal{A}$ that lie in
+$\Omega$.
+
+\begin{theorem}[Vertex sufficiency]\label{thm:vertex}
+  For every $z\in\Omega$ there is a vertex $v\in V$ with $\kappa(v)\le\kappa(z)$
+  componentwise and $B(v)\ge B(z)$. Consequently the set of non-dominated outcome vectors
+  over all of $\Omega$ equals the set of non-dominated outcome vectors over $V$.
+\end{theorem}
+
+\begin{proof}
+  Let $P(z)=\{w\in\Omega : \beta_\tau(w)\le\kappa_\tau(z)\ \forall\tau\}$. It is the
+  intersection of the compact polygon $\Omega$ with finitely many closed half-planes. It
+  is therefore a compact convex polygon, and it contains $z$ because
+  $\beta_\tau(z)\le\kappa_\tau(z)$. The linear function $B$ attains its maximum over
+  $P(z)$ at a vertex $v$ of $P(z)$, so $B(v)\ge B(z)$. Every $w\in P(z)$ satisfies
+  $\kappa_\tau(w)\le\kappa_\tau(z)$, because $\kappa_\tau(z)\in\cL$ is an upper bound of
+  $\beta_\tau(w)$ and $\kappa_\tau(w)$ is the smallest such element of $\cL$. A vertex of
+  $P(z)$ is the intersection of two non-parallel boundary lines of $P(z)$. Each such line
+  is either a boundary line of $\Omega$ or a line $\beta_\tau=\kappa_\tau(z)$, that is,
+  $H_{\tau,\lambda}$ with $\lambda=\kappa_\tau(z)\in\Lambda$. Hence $v\in V$.
+
+  For the consequence, let $y=F(z,X)$ be non-dominated over $\Omega$. By
+  \cref{lem:memo}, the plan $X$ is feasible at $v$, and $F(v,X)$ has the same
+  $(\POC,\HC,\ITO)$ and $\CSL(v)\ge\CSL(z)$. So $F(v,X)$ weakly dominates $y$. Since $y$
+  is non-dominated, $F(v,X)=y$; thus $y$ is attained at a vertex. The reverse inclusion
+  holds because $V\subseteq\Omega$.
+\end{proof}
+
+\begin{remark}[Correction of an earlier claim]
+  An earlier version of this work asserted that the continuous front need not be closed,
+  so that some cells of the arrangement contributed points only as a supremum of
+  $\CSL$. To catch these, it added one interior probe per angular sector around each
+  vertex. \Cref{thm:vertex} shows the probes are unnecessary. The vertex of a cell where
+  the supremum is attained belongs to a neighbouring cell with a componentwise smaller
+  requirement vector. Its outcome reaches the supremum and weakly dominates every point of
+  the open cell. Numerically, in three instances (SKU~1 seed~1; SKU~2 seeds~3 and~6),
+  vertices alone and vertices plus probes give identical objective sets (52\,715,
+  46\,875 and 67\,989 points). All points that the probe version had marked as
+  ``not attained'' are duplicates of attained points.
+\end{remark}
+
+By \cref{cor:memo,thm:vertex}, the continuous front is obtained by evaluating $\kappa$ at
+the vertices, keeping the largest $B$ per distinct vector, solving one inner problem per
+vector, and filtering. In our instances, $\lvert V\rvert$ is several hundred to a few
+thousand at $T=48$, and the number of distinct vectors is 7--26\% smaller.
+
+%=====================================================================================
+\subsection{Invariance with respect to the ordering cost}\label{app:invariance}
+
+\begin{proposition}[Ordering-cost invariance]\label{prop:c}
+  Let \cref{as:lattice} hold and $0<c<p\,r/\Tp$. Then the dominance relation between any
+  two candidate solutions (outer point and plan) does not depend on $c$. In particular,
+  the Pareto-optimal set of decisions is the same for every $c$ in this interval.
+\end{proposition}
+
+\begin{proof}
+  $c$ enters only through $\POC=pX(\Tp)+ck$, so it suffices to show that the sign of
+  $\Delta\POC=p\,\Delta X+c\,\Delta k$ between two solutions does not depend on $c$. By
+  \cref{as:lattice}, $X(\Tp)\in r\mathbb{N}_0$. If $\Delta X\ne0$, then
+  $\lvert\Delta X\rvert\ge r$ and $\lvert\Delta k\rvert\le\Tp$, so
+  $p\lvert\Delta X\rvert\ge p r>c\Tp\ge c\lvert\Delta k\rvert$, and $\Delta\POC$ has the
+  sign of $\Delta X$. If $\Delta X=0$, then $\Delta\POC=c\,\Delta k$ has the sign of
+  $\Delta k$ because $c>0$. In both cases the sign, including the case
+  $\Delta\POC=0$, is determined independently of $c$.
+\end{proof}
+
+\begin{remark}
+  For SKU~1 ($p=134$, $r=70$) at $T=48$ ($\Tp=43$) the interval is $0<c<218.1$, which
+  contains the values $c=50$ and $c=200$ used in experiment E4. For $c=800$ we also
+  observed identical decision sets, which shows that the condition is sufficient but not
+  necessary. For SKU~2 ($r=3$) the interval is narrow ($c<33$), and the proposition makes
+  no claim at the nominal $c=200$.
+\end{remark}
+
+%=====================================================================================
+\subsection{Complexity}\label{app:complexity}
+
+Let $S$ be the number of states per layer. With $\hat\beta\approx\mu T$ and spacing $r$
+in $\cL$, $S=\Theta(\mu T/r)$. Under \cref{as:lattice}, the partial sum $W$ is a multiple
+of $r$ not exceeding $\Tp x_{\max}$, where $x_{\max}$ is the state bound of \cref{lem:ub};
+it therefore takes at most $\Tp S$ values, and a node holds labels for at most
+$(\Tp+1)\,\Tp S$ distinct pairs $(k,W)$. For each pair only the largest $R$ survives, so
+the number $N$ of labels per node satisfies
+\begin{equation}
+  N=O(\Tp^{2}S).
+\end{equation}
+A layer has $O(S^2)$ arcs, and each arc extends at most $N$ labels. One inner
+problem therefore costs
+\begin{equation}\label{eq:complexity}
+  O\bigl(\Tp\,S^{2}\,N\log N\bigr)
+  =O\bigl(T^{3}S^{3}\log(TS)\bigr)
+  =O\bigl(T^{6}(\mu/r)^{3}\log(T\mu/r)\bigr),
+\end{equation}
+where the logarithm comes from staircase insertion. This is a pseudo-polynomial bound. It
+is polynomial in $T$ for a fixed ratio $\mu/r$. The empirical exponents of experiment E3
+agree with it: time grows as $T^{6.0\text{--}6.4}$ and as $(\mu/r)^{3.5}$, the stored
+labels grow as $T^{4.9\text{--}5.0}$, and time grows as $(\text{labels})^{1.25}$. The
+bound is not tight in practice, since \cref{lem:D} removes most ordering arcs and the
+staircases remain far below $N$. The number of inner problems is the number of
+distinct vectors $\kappa$, which is at most $\lvert V\rvert=O\bigl((\Tp\lvert\Lambda\rvert)^2\bigr)$
+for the continuous domain (here $\lvert\Lambda\rvert$ is the number of relevant lattice
+values) and at most the grid size in grid mode.
+
+%=====================================================================================
+\subsection{Numerical verification of the theoretical results}\label{app:verification}
+
+\Cref{tab:verification} lists, for each result, the experiment that checks it with the
+corrected code. Experiment labels refer to \cref{sec:design}.
+
+\begin{table}[h]
+  \centering
+  \caption{Results of this appendix and their numerical verification.}
+  \label{tab:verification}
+  \small
+  \begin{tabular}{@{}p{3.6cm}p{11.2cm}@{}}
+    \toprule
+    Result & Verification \\
+    \midrule
+    \Cref{thm:exact} with \cref{lem:ub,lem:D}
+      & E1: DP equals exhaustive enumeration (state bound three times larger, no pruning)
+        on 100/100 random instances; at $T=48$ (SKU~2, seed~42) the DP with pruning equals
+        the DP without pruning (\cref{rem:c}); all 40 E2 fronts (2 SKUs $\times$ 10 seeds
+        $\times$ grid/continuous) are identical before and after the correction. E5a: on 10 + 16 outer points at $T=48$, the
+        $\varepsilon$-constraint MILP solved with HiGHS gives identical fronts. \\
+    \Cref{thm:vertex}
+      & E1: for 20 instances (2 SKUs $\times$ 10 seeds) $\times$ $10^6$ random points of
+        $\Omega$ (one quarter on the upper boundary), every point has a vertex with
+        $\kappa(v)\le\kappa(z)$ and $B(v)\ge B(z)$; front with and without sector probes
+        identical (3 instances); all 20 continuous E2 fronts unchanged after removing the
+        probes. \\
+    \Cref{prop:c}
+      & E4: identical decision sets for $c\in\{50,200\}$ (covered) and $c=800$ (beyond
+        the sufficient condition). \\
+    Exactness overall
+      & E5b: none of the exact points is dominated by any of about $1.2\times10^8$
+        NSGA-III evaluations. \\
+    Complexity \eqref{eq:complexity}
+      & E3: fitted exponents reported above. \\
+    \bottomrule
+  \end{tabular}
+\end{table}

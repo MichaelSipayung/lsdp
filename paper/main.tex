@@ -1,0 +1,498 @@
+% Manuscript: exact label-setting DP for the four-objective lot-sizing model of Kania et al.
+% Target: European Journal of Operational Research (subscription route, no publication fee).
+% Build (from the paper/ folder, after `python3 make_figures.py --suite ../suite --out .`):
+%     pdflatex main && bibtex main && pdflatex main && pdflatex main
+\documentclass[preprint,12pt,authoryear]{elsarticle}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\input{macros}
+\IfFileExists{tables/software.tex}{\input{tables/software.tex}}{}
+\IfFileExists{tables/e3_full.tex}{\input{tables/e3_full.tex}}{\newcommand{\EfullTime}{??}\newcommand{\EfullFront}{??}}
+\IfFileExists{tables/e4_inv.tex}{\input{tables/e4_inv.tex}}{\newcommand{\EinvOK}{??}\newcommand{\EinvN}{??}}
+\newcommand{\tabin}[1]{\IfFileExists{tables/#1}{\input{tables/#1}}{\fbox{run make\_figures.py: #1}}}
+\newcommand{\figin}[2]{\IfFileExists{figures/#2}{\includegraphics[width=#1]{figures/#2}}{\fbox{run make\_figures.py: #2}}}
+
+\journal{European Journal of Operational Research}
+
+\begin{document}
+\begin{frontmatter}
+
+\title{Exact Pareto fronts for a four-objective lot-sizing model with safety stock and
+safety order time: a label-setting dynamic programming approach}
+
+\author[unimed]{Michael Sipayung\corref{cor}}
+\ead{EMAIL@unimed.ac.id}
+\cortext[cor]{Corresponding author.}
+\affiliation[unimed]{organization={Department of Physics, Faculty of Mathematics and Natural
+Sciences, Universitas Negeri Medan},
+  city={Medan}, country={Indonesia}}
+
+\begin{abstract}
+Interactive multiobjective methods for lot sizing let a decision maker navigate among
+Pareto optimal production plans, but in the published models the plans are produced by
+approximate solvers, so the decision maker never knows how far the shown trade-offs are
+from the attainable ones. We study the single-item, multi-period model of Kania et al.\
+(2022), which integrates lot sizing with the placement of a safety stock and a safety
+order time and optimises purchasing and ordering cost, holding cost, cycle service level
+and inventory turnover simultaneously. We show that, for fixed safety parameters, the
+model is a multi-criteria shortest path problem on a layered graph and develop an exact
+label-setting dynamic program with three provably safe reductions: an upper bound on the
+cumulative order quantity, an ``order only when needed'' rule, and an exact memoization
+over classes of rounded requirement vectors. For continuous safety parameters we prove
+that the vertices of a line arrangement suffice to obtain the complete front. On two
+industrial items with horizons of 48 weeks, the algorithm computes complete fronts of
+$2\times10^4$ to $7\times10^4$ points in seconds on a laptop. An $\varepsilon$-constraint
+mixed-integer programme solved with HiGHS reproduces the same fronts more than four orders
+of magnitude more slowly, and NSGA-III recovers less than one per cent of the exact front
+even with a problem-specific repair operator. The exact fronts make interactive lot sizing
+verifiable and provide reference sets for learning-based solvers.
+\end{abstract}
+
+\begin{keyword}
+Multiple objective programming \sep Lot sizing \sep Dynamic programming \sep
+Multi-criteria shortest path \sep Safety stock
+\end{keyword}
+\end{frontmatter}
+
+%=====================================================================================
+\section{Introduction}\label{sec:intro}
+
+Lot sizing decides how much to order and when, and it has been a core problem of
+production planning since the dynamic programme of \citet{WagnerWhitin1958}. Most of the
+literature optimises a single cost function \citep{Brahimi2017}, but practitioners
+balance several goals that cannot be expressed in one currency: purchasing and ordering
+costs, the capital tied up in stock, the probability of serving demand from stock and the
+speed at which inventory turns over. When demand is uncertain these goals conflict
+sharply, because the safety stock that protects service is exactly the stock that raises
+holding cost and lowers turnover.
+
+Kania and co-authors addressed this conflict with a sequence of multiobjective models and
+interactive solution processes \citep{Kania2021ICCL,Kania2022CIE,Kania2024DESMILS,
+Kania2023thesis}. Their model of \citet{Kania2022CIE}, which is the subject of this paper,
+plans the order quantities of one item over a horizon of weekly periods and places two
+safety instruments at the same time: a safety stock and a \emph{safety order time}, which
+expresses the additional stock as a multiple of the period demand. Four objectives are
+optimised: purchasing and ordering cost, holding cost, cycle service level and inventory
+turnover. The decision maker explores the trade-offs with the trade-off-free interactive
+method E-NAUTILUS \citep{Ruiz2015ENautilus}, which navigates over a precomputed set of
+Pareto optimal solutions. Related work by \citet{Heikkinen2023} follows the same
+interactive philosophy with forecast-driven demand.
+
+The quality of such a process depends on the quality of the solutions it navigates. In
+the published applications the set is approximated by a general-purpose solver, and
+nothing guarantees that the plans offered to the decision maker are Pareto optimal or
+that the set covers the attainable trade-offs. A decision maker who settles for a plan
+that is in fact dominated pays for the approximation without knowing it. Whether the
+\emph{exact} front of this model can be computed fast enough to support interactive use
+has not been studied.
+
+This paper answers the question affirmatively. Our first contribution is structural:
+once the safety parameters are fixed, a cumulative reformulation turns the inner problem
+into a multi-criteria shortest path problem on a layered acyclic graph whose arc costs
+are additive in the number of orders, the cumulative quantity and the turnover terms. The
+second contribution is an exact label-setting dynamic programme together with three
+reductions whose safety we prove: an upper bound on the total order quantity, a rule that
+removes orders placed before they are needed, and a memoization that solves one inner
+problem per class of rounded requirement vectors and keeps only the largest service
+level per class. The third contribution handles continuous safety parameters, for which
+we prove that the vertices of an arrangement of lines carry the complete Pareto front;
+this replaces an infinite outer domain by a finite candidate set without loss. The fourth
+contribution is a computational study on the two industrial items of \citet{Kania2022CIE}
+that verifies exactness against exhaustive enumeration and an independent mixed-integer
+formulation, measures the empirical complexity, and quantifies how much of the front a
+state-of-the-art evolutionary algorithm actually recovers. All code, instances and
+scripts are public.
+
+The remainder is organised as follows. \Cref{sec:related} reviews related work.
+\Cref{sec:model} recalls the model, and \cref{sec:method} presents the algorithm, whose
+proofs are collected in \cref{app:theory}. \Cref{sec:design} describes the experimental
+design and \cref{sec:results} the results. \Cref{sec:discussion} discusses implications
+and limitations, and \cref{sec:conclusion} concludes.
+
+%=====================================================================================
+\section{Related work}\label{sec:related}
+
+Single-item dynamic lot sizing with a single cost objective is polynomially solvable by
+dynamic programming in its classical form, and a large body of work extends it to
+capacities, backlogging, remanufacturing and stochastic demand \citep{Brahimi2017}.
+Multiobjective variants are fewer. The models of Kania and co-authors add service and
+turnover objectives and safety instruments to the classical cost objective
+\citep{Kania2021ICCL,Kania2022CIE}, and DESMILS extends the approach to many items by
+solving the single-item problem for a few representative items only
+\citep{Kania2024DESMILS}. These works concentrate on modelling and on the interactive
+process. The solution sets are produced by population-based or scalarisation-based
+approximation, and their distance to the true front is not reported.
+
+Exact methods for multiobjective combinatorial problems are surveyed by
+\citet{Ehrgott2005}. Two families are relevant here. Scalarisation methods such as the
+$\varepsilon$-constraint method \citep{Haimes1971} and its augmented variants
+\citep{Mavrotas2009} solve a sequence of single-objective mixed-integer programmes. They
+are generic but require one solve per front point and become slow when the front is
+large. Labelling algorithms for the multiobjective shortest path problem, from the early
+work of \citet{Hansen1980} and \citet{Martins1984} to the biobjective and multiobjective
+Dijkstra algorithms of \citet{SedenoNoda2019} and \citet{Maristany2021} and the
+label-correcting method of \citet{Kergosien2022}, compute complete sets of efficient
+paths by propagating non-dominated labels. They are efficient when the problem has a
+graph structure with additive costs, which a lot-sizing model does not obviously have:
+the turnover objective is a sum of reciprocals of average stock, and the service-level
+objective depends on the safety parameters rather than on the plan.
+
+Metaheuristics, in particular NSGA-III \citep{DebJain2014}, are the default tool for
+many-objective problems in applied work, and implementations such as pymoo
+\citep{BlankDeb2020} make them easy to use. Their weakness is the absence of any
+guarantee; without an exact reference, a front that is far from optimal can look
+convincing \citep{Sorensen2015}. Exact fronts are also the natural training and test
+references for learning-based solvers such as Pareto set learning \citep{Lin2022PSL}. We
+return to this point in \cref{sec:discussion}.
+
+%=====================================================================================
+\section{The model}\label{sec:model}
+
+We use the model of \citet{Kania2022CIE} in the notation of \cref{app:model}, to which
+we refer for all definitions. An item is planned over periods $t=1,\dots,T$ with
+deterministic lead time $L$, so that orders are placed in the decision periods
+$\tau=1,\dots,\Tp$ with $\Tp=T-L$. Order quantities belong to
+$\cQ=\{0\}\cup\{\moq+a r:a\in\mathbb{N}_0\}$ with a minimum order quantity $\moq$ and a
+rounding value $r$. The safety stock $\Ss$ and the safety order time $\SOT$ lie in the
+domain $\Omega$ defined by $\SOT+\Ss/\mu\le\MS$, where $\mu$ is the mean period demand
+and $\MS$ a managerial bound. The stock at the end of every period after the lead time
+must cover $\Ss+\SOT\cdot D(t)$. The objectives are the purchasing and ordering cost
+$\POC$ and the holding cost $\HC$ (both minimised), and the cycle service level
+$\CSL=\Phi\bigl((\Ss+\mu\SOT)/\sigma\bigr)$ and the inventory turnover $\ITO$, defined as
+the sum over periods of $(D(t)+\sigma)$ divided by the average stock (both maximised).
+Turnover is defined only for positive average stock, so we require an average stock of
+at least $\varepsilon$ units in every period. The domain of the safety parameters is
+either a finite grid, as in the original study, or the full continuous set $\Omega$.
+
+%=====================================================================================
+\section{Exact algorithm}\label{sec:method}
+
+\paragraph{Cumulative reformulation}
+Writing the plan in terms of cumulative quantities $X(\tau)=\sum_{s\le\tau}Q(s)$ turns
+every constraint into a lower bound $X(\tau)\ge\beta_\tau$ that is affine in the safety
+parameters, and every objective into a function of consecutive pairs
+$(X(\tau-1),X(\tau))$ (\cref{app:model}). For fixed safety parameters the service level
+is constant, and a plan is a monotone path in a layered acyclic graph whose nodes are
+pairs of a period and a cumulative quantity. Each arc carries three additive costs: one
+if an order is placed, the cumulative quantity, and the turnover term of the period. The
+three remaining objectives are strictly monotone functions of these sums at the
+terminal node. The inner problem is therefore a multi-criteria shortest path problem
+(\cref{app:inner}).
+
+\paragraph{Label-setting dynamic programme}
+We process the layers in order and keep, at each node, the set of non-dominated labels,
+that is, triples of order count, cumulative-sum total and accumulated turnover. Because
+arc existence and costs depend only on the arc, dominance at a node is preserved by every
+extension, and the procedure returns the exact front of the inner problem
+(\cref{thm:exact}). Labels are stored as one two-dimensional staircase per order count,
+which makes the dominance test logarithmic.
+
+\paragraph{Provably safe reductions}
+Three reductions keep the graph small. First, every plan whose total quantity exceeds the
+largest requirement by more than one order step plus $2\varepsilon$ is dominated
+(\cref{lem:ub}); this bounds the state space. Second, an order placed in a period where
+it is not yet needed can be postponed to the next period with a strict improvement in
+holding cost and no loss in the other objectives, provided the postponed plan keeps
+positive average stock in both periods it affects (\cref{lem:D}). Third, the inner
+problem depends on the safety parameters only through the vector of requirements rounded
+up to reachable quantities (\cref{lem:memo}). Hence one inner problem is solved per
+distinct vector, and only the largest service level of each class is kept
+(\cref{cor:memo}). The classes are independent and are solved in parallel.
+
+\paragraph{Continuous safety parameters}
+Each rounded requirement changes only when an affine function of $(\Ss,\SOT)$ crosses a
+reachable quantity, so the continuous domain is partitioned by an arrangement of lines.
+We prove that every point of $\Omega$ is weakly dominated by a vertex of this arrangement
+whose rounded requirement vector is componentwise smaller and whose service level is at
+least as high (\cref{thm:vertex}). The complete front over the continuous domain is
+therefore obtained from finitely many candidate points. In our instances these number a
+few hundred to a few thousand.
+
+\paragraph{Ordering-cost invariance}
+Because cumulative quantities are multiples of the rounding value, a sufficiently small
+ordering cost cannot reverse the comparison between two plans with different total
+quantities. The Pareto-optimal decisions are then independent of the ordering cost
+(\cref{prop:c}), which explains a robustness that we also observe numerically.
+
+\paragraph{Complexity}
+With $S=\Theta(\mu T/r)$ states per layer and at most $O(T^2S)$ labels per node, one inner
+problem takes $O\bigl(T^{6}(\mu/r)^{3}\log(T\mu/r)\bigr)$ time in the worst case
+(\cref{app:complexity}). The bound is pseudo-polynomial and, as \cref{sec:results} shows,
+predicts the observed growth closely.
+
+\paragraph{Implementation}
+The algorithm is implemented in C++20 with OpenMP and compiled with \verGcc{} at
+optimisation level \texttt{-O3}. It provides a verification mode that compares the
+programme with exhaustive enumeration, a verification mode for the vertex theorem, and a
+front mode that writes every Pareto point together with its decisions.
+
+%=====================================================================================
+\section{Experimental design}\label{sec:design}
+
+\paragraph{Instances}
+We use the two items of the industrial case of \citet{Kania2022CIE}. Item~1 has unit
+price $p=134$, lead time $L=5$, $\moq=r=70$, mean weekly demand $\mu=163$ and standard
+deviation $\sigma=41$, with $\MS=1.0$. Item~2 has $p=483.85$, $L=4$, $\moq=r=3$,
+$\mu=12.2$, $\sigma=3.6$ and $\MS=1.4$. Both have ordering cost $c=200$ and holding cost
+rate $h=0.1p/52$ per week. These values were reconstructed from the published description
+and the authors' open-source code. Demand sample paths are drawn from a normal
+distribution with the given moments, rounded and truncated at zero, for seeds 1--10. The
+initial stock covers the demand during the lead time plus one mean period. Grid mode uses
+the grid of the original study; continuous mode uses the full domain $\Omega$.
+
+\paragraph{Experiments}
+E1 checks correctness: the programme is compared with exhaustive enumeration on 100
+random small instances, and the vertex theorem is checked on $10^6$ random points of
+$\Omega$ for each of 20 instances. E2 computes the complete fronts at $T=48$ for both
+items, both outer domains and ten demand seeds. E3 measures scaling: one inner problem
+for horizons $T=12,\dots,96$ (three seeds), and the complete continuous front of Item~1
+at $T=96$. E4 varies the demand coefficient of variation, the rounding value and the
+ordering cost. E5a compares the inner programme on the cost--holding pair with an
+$\varepsilon$-constraint mixed-integer programme \citep{Haimes1971} solved with HiGHS
+\citep{HuangfuHall2018} through SciPy \verScipy, at one outer point and growing horizon.
+E5b runs NSGA-III \citep{DebJain2014} in pymoo \verPymoo{} \citep{BlankDeb2020} with 455
+Das--Dennis reference directions for one hour per run, with and without a problem-specific
+repair operator that enforces feasibility, the ordering rule of \cref{lem:D} and the
+lattice of order quantities, and compares the archives with the exact fronts.
+
+\paragraph{Quality indicators}
+For approximate sets we report the share of points that lie on the exact front, the
+share dominated by it, the share of the exact front recovered, the IGD$^+$ indicator
+\citep{Ishibuchi2015} and the additive $\varepsilon^+$ indicator \citep{Zitzler2003}, all
+on objectives normalised by the range of the exact front. Equality uses absolute
+tolerances of $10^{-4}$, $10^{-6}$, $10^{-8}$ and $10^{-8}$ for the four objectives, just
+above the precision of the output files.
+
+\paragraph{Computing environment}
+All experiments ran on one laptop (\verCpu, 12 logical cores, 14\,GiB memory) under
+\verOs, using \verGcc, CMake \verCmake{} and Ninja \verNinja. Analyses and figures were produced with
+Python \verPython, NumPy \verNumpy{} and Matplotlib \verMatplotlib. Every table and figure
+in this paper is generated by one script from the raw output files.
+
+%=====================================================================================
+\section{Results}\label{sec:results}
+
+\paragraph{Correctness}
+The programme agreed with exhaustive enumeration on all 100 small instances. For every
+one of the $2\times10^7$ random points used to test \cref{thm:vertex}, a dominating vertex
+was found. The mixed-integer baseline of E5a produced exactly the same fronts as the
+programme at every horizon at which it finished (\cref{tab:e5a}). Over all runs of E5b,
+not a single exact point was dominated by any of the roughly $1.2\times10^8$ solutions
+evaluated by NSGA-III. During the formal analysis we found that an earlier version of the
+ordering rule omitted the second affected period. It removed 2 of 19\,372 Pareto points in
+one instance (Item~2, seed~42); all fronts reported here were produced with the
+corrected rule, which reproduces the front of the unpruned programme.
+
+\paragraph{Complete fronts at $T=48$}
+\Cref{tab:e2} summarises E2. A complete front contains tens of thousands of
+Pareto optimal plans and is computed in a few seconds. Continuous safety parameters
+enlarge the front by roughly one fifth for Item~1 and double it for Item~2. The
+computing time grows by about 40\% for Item~1 but fivefold for Item~2, because the small
+rounding value of Item~2 creates many requirement lines and hence many arrangement
+vertices and classes. \Cref{fig:front} shows two
+projections of one front. The cost--holding projection is split into separate branches,
+one for each total order quantity. The holding--turnover projection shows how a higher
+service level shifts the attainable turnover downwards.
+
+\begin{table}[t]
+  \centering
+  \caption{Complete Pareto fronts at $T=48$ (E2, mean $\pm$ standard deviation over ten
+  demand seeds). Candidates are grid points or arrangement vertices; classes are distinct
+  rounded requirement vectors, that is, inner problems solved.}
+  \label{tab:e2}
+  \small
+  \tabin{tab_e2.tex}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figin{\textwidth}{fig_front.pdf}
+  \caption{Exact Pareto front of Item~1, seed~1, continuous safety parameters, coloured by
+  cycle service level: (a) purchasing and ordering cost against holding cost; (b) holding
+  cost against inventory turnover.}
+  \label{fig:front}
+\end{figure}
+
+\paragraph{Scaling}
+\Cref{fig:scaling} and \cref{tab:e3fit} report the growth of one inner problem with the
+horizon. The fitted exponents of time against $T$ are 5.94 and 6.53, and those of the
+labels generated are 4.88 and 5.04. Both agree with the analysis of \cref{app:complexity}:
+with $S=\Theta(T)$ states per layer and $O(T^2S)$ labels per node, the total number of
+labels is $O(T\cdot S\cdot T^2S)=O(T^5)$ and the time is $O(T^6\log T)$ for a fixed ratio
+$\mu/r$. The slightly larger time exponent of Item~2 is consistent with the logarithmic
+factor and with pre-asymptotic effects at these horizons. The bound thus describes the
+observed growth, not only the worst case. The complete continuous front of
+Item~1 at $T=96$, with \EfullFront{} Pareto points, was computed in \EfullTime{} minutes.
+
+\begin{figure}[t]
+  \centering
+  \figin{\textwidth}{fig_scaling.pdf}
+  \caption{One inner dynamic programme against the horizon $T$ (E3, mean over three
+  seeds): (a) computing time; (b) labels generated. Slopes are least-squares fits on
+  logarithmic axes for $T\ge 36$.}
+  \label{fig:scaling}
+\end{figure}
+
+\begin{table}[t]
+  \centering
+  \caption{Fitted scaling exponents of one inner problem (E3).}
+  \label{tab:e3fit}
+  \small
+  \tabin{tab_e3fit.tex}
+\end{table}
+
+\paragraph{Sensitivity}
+\Cref{tab:e4} reports E4. A higher demand variability multiplies the number of classes
+and increases the computing time, but the front becomes smaller, from about 48 thousand
+to 28 thousand points, because fewer plans remain non-dominated when requirements vary
+strongly between periods. A smaller rounding value refines the lattice of order
+quantities and enlarges both the front and the computing time considerably ($r=35$:
+135 thousand points in 71 seconds), whereas $r=140$ reduces them to 15 thousand points in
+under one second. The ordering cost leaves the number of classes, the front size and the
+computing time unchanged. In
+\EinvOK{} of \EinvN{} seeds the fronts for $c=50$, $200$ and $800$ consisted of the same
+plans, compared through the cost-independent signature of each point (total quantity,
+number of orders, holding cost, service level and turnover). \Cref{prop:c} guarantees this for $c<218.1$; the identity at $c=800$
+shows that the condition of the proposition is sufficient but not necessary.
+
+\begin{table}[t]
+  \centering
+  \caption{Sensitivity for Item~1, $T=48$, continuous domain (E4, five seeds).}
+  \label{tab:e4}
+  \small
+  \tabin{tab_e4.tex}
+\end{table}
+
+\paragraph{Comparison with an exact generic method}
+The $\varepsilon$-constraint programme solves two mixed-integer problems (one per
+lexicographic stage) for every admissible number of orders, and its time grows steeply
+with the horizon (\cref{tab:e5a,fig:milp}). Both methods return identical fronts at every
+horizon. At $T=48$ a single outer point takes 1\,262 and 1\,535 seconds for the two items,
+against 18 and 31 milliseconds for the dynamic programme, a ratio of about $5$--$7\times10^4$.
+The ratio itself grows with the horizon, and a complete front requires several hundred
+such outer points.
+
+\begin{table}[t]
+  \centering
+  \caption{Dynamic programme against the $\varepsilon$-constraint MILP on the bi-objective
+  (POC, HC) inner problem at $\Ss=8$, $\SOT=0.3$ (E5a, seed 1).}
+  \label{tab:e5a}
+  \small
+  \tabin{tab_e5a.tex}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figin{0.6\textwidth}{fig_milp.pdf}
+  \caption{Computing time of the dynamic programme and of the $\varepsilon$-constraint MILP
+  against the horizon (E5a). Dynamic-programme times are measured with a resolution of one
+  millisecond.}
+  \label{fig:milp}
+\end{figure}
+
+\paragraph{Comparison with NSGA-III}
+\Cref{tab:e5b} and \cref{fig:nsga} show that one hour of NSGA-III, more than two orders
+of magnitude longer than the exact computation, yields sets that are almost entirely
+dominated. Without repair, no archive point lies on the exact front. The repair operator
+enlarges the archives about fivefold and reduces the $\varepsilon^+$ indicator by roughly
+one order of magnitude (for Item~1 against the continuous front from $0.277$ to $0.034$,
+for Item~2 from $0.474$ to $0.039$). Even so, 97.8--99.4\% of the archive points remain
+dominated, and on average only 0.14--0.63\% of the exact front is recovered. Indicator values that look acceptable in isolation thus hide a
+large gap, which becomes visible only against the exact reference.
+
+\begin{table}[t]
+  \centering
+  \caption{NSGA-III archives after one hour against the exact fronts (E5b, seeds 1--3).
+  $|A|$ is the archive size; the last column counts exact points dominated by an archive
+  point and must be zero.}
+  \label{tab:e5b}
+  \scriptsize
+  \resizebox{\textwidth}{!}{\tabin{tab_e5b.tex}}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figin{0.6\textwidth}{fig_nsga.pdf}
+  \caption{Item~1, seed~1: the (POC, HC) frontier of the exact front and the archives of
+  NSGA-III without and with repair (E5b).}
+  \label{fig:nsga}
+\end{figure}
+
+%=====================================================================================
+\section{Discussion}\label{sec:discussion}
+
+The first implication concerns interactive decision support. Methods such as E-NAUTILUS
+are designed to navigate over a precomputed set of solutions. Our results show that for
+the model of \citet{Kania2022CIE} this set can be the complete Pareto front, computed in
+seconds, rather than an approximation of unknown quality. Every plan the decision maker
+sees is then Pareto optimal, and every attainable trade-off is available. The
+comparison with NSGA-III shows that this difference matters in practice: the
+approximation offered plans that were almost all dominated, and its standard indicators
+did not reveal it.
+
+The second implication is methodological. The exactness of the algorithm rests on
+reductions whose safety is easy to assume and hard to verify. Our own first version of the
+ordering rule overlooked a feasibility condition that affects only plans with very low
+stock. It passed exhaustive tests on small instances and was found only through the
+formal proof. We therefore regard the combination of proofs and three independent
+numerical checks (enumeration, an independent mixed-integer model, and dominance against
+very large approximate sets) as necessary rather than optional for exact multiobjective
+algorithms.
+
+The study has limitations. The model is single-item and evaluates each plan on one
+demand sample path, as in the original study, so the front describes trade-offs for a
+given forecast rather than in expectation. The running time grows as $T^6$, so very long
+horizons or very small rounding values will need approximation with guarantees; an
+$\varepsilon$-Pareto variant of the label-setting procedure is a natural candidate. The
+service-level objective saturates near one, and many Pareto points differ only in its
+eighth decimal; a decision maker would treat these as equivalent, which suggests
+presenting the front with a resolution chosen by the user. Finally, the parameters of the
+industrial items were reconstructed from published information and may differ in detail
+from the company data.
+
+These limitations point to the next steps. For many items, the exact single-item fronts
+can replace the representative-item approximation of DESMILS
+\citep{Kania2024DESMILS}. For larger instances, preference-conditioned learning models
+such as Pareto set learning \citep{Lin2022PSL} can be trained and, for the first time
+in this application, evaluated against exact fronts rather than against other
+heuristics.
+
+%=====================================================================================
+\section{Conclusion}\label{sec:conclusion}
+
+We have shown that the four-objective lot-sizing model with safety stock and safety order
+time of \citet{Kania2022CIE} admits an exact and fast solution method. A cumulative
+reformulation turns the inner problem into a multi-criteria shortest path problem. A
+label-setting dynamic programme with three proven reductions solves it, and a vertex
+theorem reduces continuous safety parameters to a finite candidate set. On industrial
+instances the complete fronts, with tens of thousands of Pareto optimal plans, are
+obtained in seconds. This is more than four orders of magnitude faster than an exact
+mixed-integer approach, and it far exceeds the quality of a state-of-the-art
+evolutionary algorithm. Exact fronts make interactive lot sizing verifiable and provide
+the reference that learning-based methods need.
+
+\section*{Data and code availability}
+The C++ implementation, the baseline scripts, the instance generator and the script that
+produces every table and figure are available at
+\url{https://github.com/USERNAME/lsdp}.
+
+\section*{Declaration of generative AI use}
+During the preparation of this work the author used an AI assistant to help draft
+code and text. The author reviewed and edited all content and takes full responsibility
+for the publication.
+
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\section{Theoretical foundations}\label{app:theory}
+\input{appendix_body}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{refs}
+
+\end{document}
