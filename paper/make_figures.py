@@ -335,6 +335,49 @@ if os.path.exists(ex):
     fig.savefig(os.path.join(FIG, "fig_nsga.pdf"))
     plt.close(fig)
 
+# ---------------------------------------------------------------- E7 generic network baseline
+# The reference runs (period-by-period programme over all classes, no problem-specific
+# reductions) are the generic network-model construction for this problem.
+rows7 = []
+def pair_stats(new_glob, ref_dir):
+    out = []
+    for f in sorted(glob.glob(new_glob)):
+        g = os.path.join(ref_dir, os.path.basename(f))
+        a1, a0 = log_stats(f), log_stats(g)
+        if a1["time"] == a1["time"] and a0["time"] == a0["time"] and a1["time"] > 0:
+            out.append((a0["time"], a1["time"], a0["labels"], a1["labels"], a0["keys"], a1["solvedcls"]))
+    return out
+groups7 = [(f"E2, SKU {k}, {o}", f"{a.suite}/E2/sku{k}_s*_{o}.log", f"{a.suite}/ref/E2")
+           for k in (1, 2) for o in ("grid", "continuous")]
+groups7 += [(f"E4, ${lab}$", f"{a.suite}/E4/{tag}_s*.log", f"{a.suite}/ref/E4")
+            for tag, lab in (("cv0.5", "CV=0.50"), ("r35", "r=35"), ("r140", "r=140"))]
+for name, gl, rd in groups7:
+    P = pair_stats(gl, rd)
+    if not P:
+        continue
+    t0 = [x[0] for x in P]; t1 = [x[1] for x in P]
+    l0 = [x[2] for x in P]; l1 = [x[3] for x in P]
+    c0 = [x[4] for x in P]; c1 = [x[5] for x in P]
+    rows7.append(f"{name} & {len(P)} & {st.mean(c0):.0f} & {st.mean(c1):.0f} & "
+                 f"{st.mean(t0):.2f} & {st.mean(t1):.2f} & "
+                 f"{st.mean([x/y for x, y in zip(t0, t1)]):.1f} \\\\")
+# E6 reference checks
+P6 = []
+for ref in glob.glob(f"{a.suite}/E6/*/*_ref.log"):
+    f = ref[:-8] + ".log"
+    a0, a1 = log_stats(ref), log_stats(f)
+    if a0["time"] == a0["time"] and a1["time"] == a1["time"] and a1["time"] > 0:
+        P6.append((a0["time"], a1["time"]))
+if P6:
+    rows7.append(f"E6, random instances & {len(P6)} & -- & -- & {st.mean([x[0] for x in P6]):.2f} & "
+                 f"{st.mean([x[1] for x in P6]):.2f} & {st.mean([x/y for x, y in P6]):.1f} \\\\")
+if rows7:
+    write("tab_e7.tex", "\\begin{tabular}{@{}lrrrrrr@{}}\n\\toprule\n"
+          " & & \\multicolumn{2}{c}{Inner problems} & \\multicolumn{2}{c}{Time (s)} & \\\\\n"
+          "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}\n"
+          "Instances & $n$ & generic & ours & generic & ours & Speed-up \\\\\n\\midrule\n"
+          + "\n".join(rows7) + "\n\\bottomrule\n\\end{tabular}\n")
+
 # ---------------------------------------------------------------- E6 public benchmark data
 CLS = ("smooth", "erratic", "intermittent", "lumpy")
 
@@ -400,7 +443,9 @@ if man:
           f"\\newcommand{{\\EsixTotalMin}}{{{sum(alltimes)/60:.0f}}}\n"
           f"\\newcommand{{\\EsixTimeout}}{{{sum(1 for d in allst if d['timeout'] == d['timeout'])}}}\n"
           f"\\newcommand{{\\EsixTlim}}{{{int(max([d['timeout'] for d in allst if d['timeout'] == d['timeout']] or [1800]) / 60)}}}\n"
-          f"\\newcommand{{\\EsixPctSolved}}{{{100 * len(alltimes) / len(man):.1f}}}\n")
+          f"\\newcommand{{\\EsixPctSolved}}{{{100 * len(alltimes) / len(man):.1f}}}\n"
+          f"\\newcommand{{\\EsixClassRedMax}}{{{max([d['keys'] / d['solvedcls'] for d in allst if d['solvedcls'] == d['solvedcls'] and d['solvedcls'] > 0] or [float('nan')]):.0f}}}\n"
+          f"\\newcommand{{\\EsixClassRedMed}}{{{np.median([d['keys'] / d['solvedcls'] for d in allst if d['solvedcls'] == d['solvedcls'] and d['solvedcls'] > 0] or [float('nan')]):.1f}}}\n")
     # figure: (a) classification of the selected series, (b) computing time per class
     fig, ax = plt.subplots(1, 3, figsize=(7.2, 2.5), constrained_layout=True)
     seen = {}

@@ -14,7 +14,7 @@
 \input{macros}
 \IfFileExists{tables/software.tex}{\input{tables/software.tex}}{}
 \IfFileExists{tables/e3_full.tex}{\input{tables/e3_full.tex}}{\newcommand{\EfullTime}{??}\newcommand{\EfullFront}{??}}
-\IfFileExists{tables/e6_macros.tex}{\input{tables/e6_macros.tex}}{\newcommand{\EsixInst}{??}\newcommand{\EsixSolved}{??}\newcommand{\EsixSeries}{??}\newcommand{\EsixChkOK}{??}\newcommand{\EsixChkN}{??}\newcommand{\EsixMedTime}{??}\newcommand{\EsixMaxTime}{??}\newcommand{\EsixTotalMin}{??}\newcommand{\EsixTimeout}{??}\newcommand{\EsixTlim}{??}\newcommand{\EsixPctSolved}{??}}
+\IfFileExists{tables/e6_macros.tex}{\input{tables/e6_macros.tex}}{\newcommand{\EsixInst}{??}\newcommand{\EsixSolved}{??}\newcommand{\EsixSeries}{??}\newcommand{\EsixChkOK}{??}\newcommand{\EsixChkN}{??}\newcommand{\EsixMedTime}{??}\newcommand{\EsixMaxTime}{??}\newcommand{\EsixTotalMin}{??}\newcommand{\EsixTimeout}{??}\newcommand{\EsixTlim}{??}\newcommand{\EsixPctSolved}{??}\newcommand{\EsixClassRedMax}{??}\newcommand{\EsixClassRedMed}{??}}
 \IfFileExists{tables/e2_macros.tex}{\input{tables/e2_macros.tex}}{\newcommand{\EtwoSpeedLo}{??}\newcommand{\EtwoSpeedHi}{??}\newcommand{\EtwoSpeedMed}{??}}
 \IfFileExists{tables/e5a_macros.tex}{\input{tables/e5a_macros.tex}}{\newcommand{\EfiveDPone}{??}\newcommand{\EfiveDPtwo}{??}\newcommand{\EfiveMILPone}{??}\newcommand{\EfiveMILPtwo}{??}\newcommand{\EfiveRatioLo}{??}\newcommand{\EfiveRatioHi}{??}\newcommand{\EfiveOrders}{??}}
 \IfFileExists{tables/e4_inv.tex}{\input{tables/e4_inv.tex}}{\newcommand{\EinvOK}{??}\newcommand{\EinvN}{??}}
@@ -51,7 +51,9 @@ the Wagner--Whitin property, which reduces the branching from order quantities t
 periods. Together with an exact memoization over classes of rounded requirement vectors
 and a dominance rule between classes, this makes the algorithm robust to demand that
 exceeds its forecast. For continuous safety parameters we prove
-that the vertices of a line arrangement suffice to obtain the complete front. On two
+that the vertices of a line arrangement suffice to obtain the complete front. All structural
+results hold for a general class of requirement-constrained lot-sizing models with
+monotone, period-separable objectives. On two
 industrial items with horizons of 48 weeks, the algorithm computes complete fronts of
 $2\times10^4$ to $7\times10^4$ points in seconds on a laptop. An $\varepsilon$-constraint
 mixed-integer programme solved with HiGHS reproduces the same fronts, but more than
@@ -118,7 +120,8 @@ this replaces an infinite outer domain by a finite candidate set without loss. T
 contribution is a computational study on the two industrial items of \citet{Kania2022CIE}
 that verifies exactness against exhaustive enumeration and an independent mixed-integer
 formulation, measures the empirical complexity, and quantifies how much of the front a
-state-of-the-art evolutionary algorithm actually recovers. The fifth contribution is a
+state-of-the-art evolutionary algorithm actually recovers. The structural results are proved for a general class of requirement-constrained
+lot-sizing models, of which the model of \citet{Kania2022CIE} is one instance. The fifth contribution is a
 public benchmark of lot-sizing instances derived from real demand data, with fixed and
 documented rules for every parameter, together with their exact Pareto fronts as reference
 sets for future exact and approximate methods. All code, instances and scripts are public.
@@ -245,6 +248,19 @@ turnover. The algorithm therefore works on a graph of order events, in which eac
 branches over at most $\Tp$ periods of the next order, and remains exact
 (\cref{thm:event}).
 
+\paragraph{Generality}
+None of these results depends on the particular functional form of the four objectives.
+\Cref{thm:general} identifies the properties that the proofs use: cumulative requirements
+that are lower bounds on the cumulative supply, feasibility conditions on consecutive
+periods that are monotone and compatible with moving a case pack to a later order, plan
+objectives that are separable over consecutive periods and non-decreasing in the stock,
+with one of them strictly increasing, and service objectives that depend only on the
+safety parameters. Every model with these properties, which we call requirement-constrained
+lot-sizing models, admits the order-event programme, the exact memoization, the class
+dominance rule and, for affine requirements and a linear service index, the vertex theorem
+in any number of safety parameters. The model of \citet{Kania2022CIE} is one instance;
+capacitated models and models with backlogging are not.
+
 \paragraph{Provably safe reductions}
 Three reductions keep the graph small. First, every plan whose total quantity exceeds the
 largest requirement by more than one order step plus $2\varepsilon$ is dominated
@@ -316,7 +332,18 @@ E5b runs NSGA-III \citep{DebJain2014} in pymoo \verPymoo{} \citep{BlankDeb2020} 
 Das--Dennis reference directions for one hour per run, with and without a problem-specific
 repair operator that enforces feasibility, the ordering rule of \cref{lem:D} and the
 lattice of order quantities, and compares the archives with the exact fronts.
-E6 solves the public benchmark described next.
+E6 solves the public benchmark described next. E7 compares the algorithm with the generic
+network-model approach of \citet{Bergman2022}, instantiated for this problem as the
+period-by-period layered network over cumulative quantities, solved for every requirement
+class by multicriteria label setting without any of the problem-specific reductions; these
+are the reference runs used for the exactness checks, so both methods run on the same
+machine with the same nine threads. We did not implement the generic node- and
+arc-removal operations of \citet{Bergman2022}, which can shrink such a network but cannot
+replace branching over quantities by branching over order periods. Generic
+$\varepsilon$-constraint enumeration for three or more objectives
+\citep{KirlikSayin2014,TambyVanderpooten2021} is not applicable without a substantial
+reformulation, because the turnover objective, a sum of reciprocals of average stock, is
+not linear in the decisions; E5a therefore uses the bi-objective sub-model.
 
 \paragraph{Public benchmark (E6)}
 The two industrial items and their normally distributed demand do not show how the
@@ -558,6 +585,28 @@ confirms the reductions of \cref{sec:method} on irregular real demand.
   divided by the case pack $r$.}
   \label{fig:e6}
 \end{figure}
+
+\paragraph{Comparison with the generic network model}
+\Cref{tab:e7} reports E7. The generic construction returns the same fronts in every case
+(\cref{sec:results}, correctness), which confirms that the problem-specific results are
+exact, but it is slower in every instance group, and the gap is largest where the inner
+problems are largest. Two effects combine. Class dominance reduces the number of inner
+problems, by about one tenth to one quarter on the industrial items and, on the public
+benchmark, by a factor of \EsixClassRedMed{} in the median and up to \EsixClassRedMax{} on
+instances whose demand far exceeds its forecast; and the
+order-event programme makes each remaining inner problem cheaper, because a node branches
+over at most $\Tp$ order periods instead of over all reachable cumulative quantities.
+
+\begin{table}[t]
+  \centering
+  \caption{Generic network model (period-by-period programme over all classes, no
+  problem-specific reductions) against the algorithm of this paper (E7): mean number of
+  inner problems solved and mean time per instance, nine threads, same machine. Speed-up
+  is the mean of the per-instance ratios.}
+  \label{tab:e7}
+  \small
+  \tabin{tab_e7.tex}
+\end{table}
 
 %=====================================================================================
 \section{Discussion}\label{sec:discussion}

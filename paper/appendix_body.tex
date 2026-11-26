@@ -187,11 +187,10 @@ superset that serves every outer point.
   Postponing an order lowers the average stock in \emph{two} periods, $\tau+L$ and
   $\tau+L+1$. A version of \cref{lem:D} that checks only (a) and (b) is not valid: the
   postponed plan may violate $\Ibar\ge\eps$ in period $\tau+L+1$, so the claimed dominating
-  plan need not exist. In our experiments the earlier implementation, which omitted (c),
-  missed 2 of 19\,372 Pareto points in one instance (SKU~2, seed~42, grid mode; both
-  points have $\Ss=\SOT=0$, where the stock is lowest). The corrected rule reproduces the
-  front of the DP without any pruning. All 20 instances of experiment E2 (seeds 1--10) are
-  unaffected.
+  plan need not exist. The omission is not harmless in practice: an
+  implementation that drops (c) misses 2 of 19\,372 Pareto points in one of our instances
+  (SKU~2, seed~42, grid mode; both points have $\Ss=\SOT=0$, where the stock is lowest),
+  whereas the rule with (c) reproduces the front of the programme without any pruning.
 \end{remark}
 
 \begin{remark}[Implementation]
@@ -417,23 +416,145 @@ $\Omega$.
   holds because $V\subseteq\Omega$.
 \end{proof}
 
-\begin{remark}[Correction of an earlier claim]
-  An earlier version of this work asserted that the continuous front need not be closed,
-  so that some cells of the arrangement contributed points only as a supremum of
-  $\CSL$. To catch these, it added one interior probe per angular sector around each
-  vertex. \Cref{thm:vertex} shows the probes are unnecessary. The vertex of a cell where
-  the supremum is attained belongs to a neighbouring cell with a componentwise smaller
-  requirement vector. Its outcome reaches the supremum and weakly dominates every point of
-  the open cell. Numerically, in three instances (SKU~1 seed~1; SKU~2 seeds~3 and~6),
-  vertices alone and vertices plus probes give identical objective sets (52\,715,
-  46\,875 and 67\,989 points). All points that the probe version had marked as
-  ``not attained'' are duplicates of attained points.
+\begin{remark}[Why the vertices suffice although the cells are not closed]
+  The cells of the arrangement are not closed: on a boundary line the rounded requirement
+  jumps to the next lattice value, so the supremum of $B$ over a cell may be attained only on
+  a side that belongs to a neighbouring cell. One might therefore expect that some cells
+  contribute front points only as suprema that no candidate attains, and that interior
+  probes would be needed. \Cref{thm:vertex} shows that this cannot happen: the vertex at
+  which the supremum is reached lies in a neighbouring cell whose rounded requirement
+  vector is componentwise smaller, so every plan of the open cell is feasible there with at
+  least the same service level. Numerically, in three instances (SKU~1 seed~1; SKU~2 seeds~3
+  and~6), vertices alone and vertices complemented by one interior probe per angular sector
+  give identical objective sets (52\,715, 46\,875 and 67\,989 points).
 \end{remark}
 
 By \cref{cor:memo,thm:vertex}, the continuous front is obtained by evaluating $\kappa$ at
 the vertices, keeping the largest $B$ per distinct vector, solving one inner problem per
 vector, and filtering. In our instances, $\lvert V\rvert$ is several hundred to a few
 thousand at $T=48$, and the number of distinct vectors is 7--26\% smaller.
+
+%=====================================================================================
+\subsection{A general class of models}\label{app:general}
+
+The proofs of \cref{lem:cover,thm:event,lem:memo,cor:memo,cor:classdom,thm:vertex} use only a
+few structural properties of the model of \citet{Kania2022CIE}. We now state these
+properties abstractly and show that the results hold for every model that has them.
+
+\begin{definition}[Requirement-constrained lot-sizing models]\label{def:class}
+  An instance of the class $\mathfrak{G}$ consists of decision periods $\tau=1,\dots,\Tp$, an
+  order set $\cQ=\{0\}\cup\{\moq+ar:a\in\mathbb{N}_0\}$ satisfying \cref{as:lattice}, a set
+  $\Omega$ of outer parameters $z$, and the following data. A plan is a non-decreasing
+  sequence $X(0)=0,X(1),\dots,X(\Tp)$ with $X(\tau)-X(\tau-1)\in\cQ$, and $k$ denotes its
+  number of orders.
+  \begin{enumerate}[label=(G\arabic*),leftmargin=*,nosep]
+    \item\label{G:req} \emph{Requirements.} A plan is feasible at $z$ only if
+      $X(\tau)\ge\beta_\tau(z)$ for all $\tau$.
+    \item\label{G:pair} \emph{Pair conditions.} A plan is feasible only if
+      $g_\tau\bigl(X(\tau-1),X(\tau)\bigr)\ge0$ for all $\tau$, where each $g_\tau$ does not
+      depend on $z$, is non-decreasing in both arguments, and is \emph{exchange compatible}:
+      $g_\tau(x-r,y)\ge g_\tau(x,x)$ whenever $y\ge x+r$.
+    \item\label{G:obj} \emph{Plan objectives.} There are objectives $F_1,\dots,F_m$, to be
+      minimised, of the form
+      \[
+        F_j=\sum_{\tau=1}^{\Tp}\psi^j_\tau\bigl(X(\tau-1),X(\tau)\bigr)
+           +\theta^j\bigl(X(\Tp)\bigr)+\eta^j(k),
+      \]
+      where every $\psi^j_\tau$, $\theta^j$ and $\eta^j$ is non-decreasing in each argument
+      on the set where the pair conditions hold, and, for at least one index $j^\ast$, every
+      $\psi^{j^\ast}_\tau$ is strictly increasing in its second argument.
+    \item\label{G:serv} \emph{Service objectives.} There are objectives $S_1,\dots,S_q$, to be
+      maximised, that depend on $z$ only.
+    \item\label{G:init} \emph{Order-free start.} The plan $X\equiv0$ on periods
+      $1,\dots,\tau_1-1$ is admissible whenever it satisfies \ref{G:req} and \ref{G:pair} on
+      these periods.
+  \end{enumerate}
+  For $x'\ge0$ let $\zeta_\tau(x')=\min\{x:g_\tau(x',x)\ge0\}$ and
+  $\gamma_s=\min\{x:g_s(x,x)\ge0\}$, and define the covering requirement
+  \begin{equation}\label{eq:cover-general}
+    N^{\mathfrak{G}}_{\tau\tau'}(x')=\max\Bigl\{\max_{\tau\le s<\tau'}\beta_s(z),\;
+      \max_{\tau<s<\tau'}\gamma_s,\;\zeta_\tau(x')\Bigr\},
+    \qquad X^0_{\tau\tau'}(x')=\max\bigl\{\lceil N^{\mathfrak{G}}_{\tau\tau'}(x')\rceil_r,\;x'+\moq\bigr\}.
+  \end{equation}
+\end{definition}
+
+\begin{theorem}[Structural results for the class $\mathfrak{G}$]\label{thm:general}
+  Let an instance of $\mathfrak{G}$ be given.
+  \begin{enumerate}[label=(\alph*),nosep]
+    \item\label{gen:a} In every Pareto-optimal plan, an order in period $\tau$ with next order
+      in $\tau'$ and $x'=X(\tau-1)$ raises the cumulative quantity to
+      $X=X^0_{\tau\tau'}(x')+ir$ with $i=0$, or with $i\ge1$, $\tau'\le\Tp$ and
+      $g_{\tau'}(X,X)<0$. The label-setting algorithm on the corresponding order-event graph
+      returns exactly the non-dominated plan outcomes $(F_1,\dots,F_m)$ for each $z$.
+    \item\label{gen:b} The inner problem depends on $z$ only through the rounded requirement
+      vector $\kappa(z)$, and if $\kappa(z')\le\kappa(z)$ componentwise, every plan feasible at
+      $z$ is feasible at $z'$ with the same plan objectives.
+    \item\label{gen:c} If $\kappa(z')\le\kappa(z)$ and $S_l(z')\ge S_l(z)$ for all $l$, every
+      outcome at $z$ is weakly dominated by an outcome at $z'$; such classes can be skipped.
+    \item\label{gen:d} If $\Omega\subset\mathbb{R}^d$ is a polytope, every $\beta_\tau$ is affine,
+      $q=1$ and $S_1=\omega\circ B$ with $B$ linear and $\omega$ strictly increasing, then the
+      vertices of the arrangement formed by the facets of $\Omega$ and the hyperplanes
+      $\beta_\tau(z)=\lambda$, $\lambda\in\cL$, carry the complete front.
+  \end{enumerate}
+\end{theorem}
+
+\begin{proof}
+  \ref{gen:a} We repeat the proof of \cref{lem:cover} with the general data. Suppose
+  $X\ge X^0_{\tau\tau'}(x')+r$ and either $\tau'=\Tp+1$ or $g_{\tau'}(X,X)\ge0$, and move $r$
+  units from $\tau$ to $\tau'$ (or drop them if $\tau'=\Tp+1$), which is possible by
+  \cref{as:lattice} because $Q(\tau)\ge\moq+r$. The new plan has $X'(s)=X-r$ for
+  $\tau\le s<\tau'$. Since $X-r\ge N^{\mathfrak{G}}_{\tau\tau'}(x')$, the requirements hold on
+  $[\tau,\tau')$, and by the monotonicity of the pair functions,
+  $g_\tau(x',X-r)\ge0$ and $g_s(X-r,X-r)\ge0$ for $\tau<s<\tau'$. If $\tau'\le\Tp$, then
+  $X(\tau')\ge X+\moq\ge X+r$, so exchange compatibility gives
+  $g_{\tau'}(X-r,X(\tau'))\ge g_{\tau'}(X,X)\ge0$. No other condition changes, so the new plan
+  is feasible. The number of orders is unchanged and $X(\Tp)$ does not increase. Every pair
+  term involves arguments that are equal or smaller, so by \ref{G:obj} no objective
+  increases, and $F_{j^\ast}$ decreases strictly because $\psi^{j^\ast}_\tau$ is strictly
+  increasing in its second argument and $X'(\tau)<X(\tau)$. Hence the plan is dominated.
+  Feasibility forces $X\ge X^0_{\tau\tau'}(x')$, which gives the characterisation. Arc costs
+  are pair-additive by \ref{G:obj}, so the induction of \cref{thm:exact} applies to the order
+  events, with the order-free prefixes of \ref{G:init} as initial labels, and the plan
+  objectives are evaluated at the terminal node exactly as in \eqref{eq:terminal}.
+
+  \ref{gen:b} The parameter $z$ enters only through \ref{G:req}. Plans are integer multiples
+  of $r$, so $X(\tau)\ge\beta_\tau(z)$ is equivalent to $X(\tau)\ge\kappa_\tau(z)$. The pair
+  conditions and plan objectives do not involve $z$.
+
+  \ref{gen:c} follows from \ref{gen:b} and \ref{G:serv}.
+
+  \ref{gen:d} The proof of \cref{thm:vertex} carries over verbatim: $P(z)$ is a polytope in
+  $\mathbb{R}^d$, the linear function $B$ attains its maximum at a vertex, and a vertex is the
+  intersection of $d$ linearly independent hyperplanes among the facets of $\Omega$ and the
+  hyperplanes $\beta_\tau=\lambda$; since $\omega$ is strictly increasing, a larger $B$ means
+  a weakly larger service objective.
+\end{proof}
+
+\begin{remark}[The model of \citet{Kania2022CIE} as an instance]
+  With $g_\tau(x',x)=b_\tau+\tfrac12(x'+x)-\eps$, the pair conditions are the positivity of
+  average stock; $g_\tau$ is non-decreasing, and exchange compatibility holds because
+  $g_\tau(x-r,y)=b_\tau+\tfrac12(x-r+y)\ge b_\tau+x=g_\tau(x,x)$ for $y\ge x+r$. Then
+  $\gamma_s=\eps-b_s$ and $\zeta_\tau(x')=2(\eps-b_\tau)-x'$, so \eqref{eq:cover-general}
+  reduces to \eqref{eq:cover}, and $g_{\tau'}(X,X)<0$ is the condition $b_{\tau'}+X<\eps$ of
+  \cref{thm:event}. The plan objectives are $\POC$ ($\theta=pX(\Tp)$, $\eta=ck$), $\HC$
+  ($\psi_\tau=\tfrac h2(x'+x)$, strictly increasing) and $-\ITO$
+  ($\psi_\tau=-(D(\tau+L)+\sigma)/(b_\tau+\tfrac12(x'+x))$, non-decreasing where $g_\tau\ge0$);
+  the service objective is $\CSL=\Phi(B/\sigma)$ with $B=\Ss+\mu\SOT$ linear, and the
+  requirements \eqref{eq:req} are affine in $z=(\Ss,\SOT)$.
+\end{remark}
+
+\begin{remark}[Further instances]
+  The class contains variants that the original model does not cover. Additional plan
+  objectives that are pair-separable and non-decreasing in the stock (for instance the value
+  of average stock, or the number of periods whose stock exceeds a capacity threshold) and
+  additional order-count objectives keep \ref{G:obj}. A safety policy with more than two
+  parameters keeps \ref{gen:d} as long as the requirements are affine in the parameters and
+  service is an increasing function of one linear combination of them; with several
+  service measures or a finite set of policies, \ref{gen:a}--\ref{gen:c} still apply and the
+  outer candidates are the policies themselves. The class does not cover capacitated
+  models, in which moving units to a later order may violate a capacity, nor backlogging,
+  where the requirements are not lower bounds on cumulative supply.
+\end{remark}
 
 %=====================================================================================
 \subsection{Invariance with respect to the ordering cost}\label{app:invariance}
