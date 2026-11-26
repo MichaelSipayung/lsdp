@@ -14,6 +14,7 @@
 \input{macros}
 \IfFileExists{tables/software.tex}{\input{tables/software.tex}}{}
 \IfFileExists{tables/e3_full.tex}{\input{tables/e3_full.tex}}{\newcommand{\EfullTime}{??}\newcommand{\EfullFront}{??}}
+\IfFileExists{tables/e6_macros.tex}{\input{tables/e6_macros.tex}}{\newcommand{\EsixInst}{??}\newcommand{\EsixSolved}{??}\newcommand{\EsixSeries}{??}\newcommand{\EsixChkOK}{??}\newcommand{\EsixChkN}{??}\newcommand{\EsixMedTime}{??}\newcommand{\EsixMaxTime}{??}\newcommand{\EsixTotalMin}{??}\newcommand{\EsixTimeout}{??}\newcommand{\EsixTlim}{??}\newcommand{\EsixPctSolved}{??}}
 \IfFileExists{tables/e4_inv.tex}{\input{tables/e4_inv.tex}}{\newcommand{\EinvOK}{??}\newcommand{\EinvN}{??}}
 \newcommand{\tabin}[1]{\IfFileExists{tables/#1}{\input{tables/#1}}{\fbox{run make\_figures.py: #1}}}
 \newcommand{\figin}[2]{\IfFileExists{figures/#2}{\includegraphics[width=#1]{figures/#2}}{\fbox{run make\_figures.py: #2}}}
@@ -42,15 +43,22 @@ from the attainable ones. We study the single-item, multi-period model of Kania 
 order time and optimises purchasing and ordering cost, holding cost, cycle service level
 and inventory turnover simultaneously. We show that, for fixed safety parameters, the
 model is a multi-criteria shortest path problem on a layered graph and develop an exact
-label-setting dynamic program with three provably safe reductions: an upper bound on the
-cumulative order quantity, an ``order only when needed'' rule, and an exact memoization
-over classes of rounded requirement vectors. For continuous safety parameters we prove
+label-setting dynamic program. We prove that every Pareto-optimal order raises the
+cumulative quantity to the level that covers demand until the next order, an analogue of
+the Wagner--Whitin property, which reduces the branching from order quantities to order
+periods. Together with an exact memoization over classes of rounded requirement vectors
+and a dominance rule between classes, this makes the algorithm robust to demand that
+exceeds its forecast. For continuous safety parameters we prove
 that the vertices of a line arrangement suffice to obtain the complete front. On two
 industrial items with horizons of 48 weeks, the algorithm computes complete fronts of
 $2\times10^4$ to $7\times10^4$ points in seconds on a laptop. An $\varepsilon$-constraint
 mixed-integer programme solved with HiGHS reproduces the same fronts more than four orders
 of magnitude more slowly, and NSGA-III recovers less than one per cent of the exact front
-even with a problem-specific repair operator. The exact fronts make interactive lot sizing
+even with a problem-specific repair operator. On a public benchmark of \EsixInst{}
+instances built from the M5 (Walmart) and UCI Online Retail II demand data, covering
+smooth, erratic, intermittent and lumpy demand, \EsixPctSolved\% of the instances are solved
+exactly within \EsixTlim{} minutes, with a median time of \EsixMedTime{} seconds, and the
+remaining ones are explained by the complexity analysis. The exact fronts make interactive lot sizing
 verifiable and provide reference sets for learning-based solvers.
 \end{abstract}
 
@@ -106,8 +114,10 @@ this replaces an infinite outer domain by a finite candidate set without loss. T
 contribution is a computational study on the two industrial items of \citet{Kania2022CIE}
 that verifies exactness against exhaustive enumeration and an independent mixed-integer
 formulation, measures the empirical complexity, and quantifies how much of the front a
-state-of-the-art evolutionary algorithm actually recovers. All code, instances and
-scripts are public.
+state-of-the-art evolutionary algorithm actually recovers. The fifth contribution is a
+public benchmark of lot-sizing instances derived from real demand data, with fixed and
+documented rules for every parameter, together with their exact Pareto fronts as reference
+sets for future exact and approximate methods. All code, instances and scripts are public.
 
 The remainder is organised as follows. \Cref{sec:related} reviews related work.
 \Cref{sec:model} recalls the model, and \cref{sec:method} presents the algorithm, whose
@@ -193,6 +203,20 @@ extension, and the procedure returns the exact front of the inner problem
 (\cref{thm:exact}). Labels are stored as one two-dimensional staircase per order count,
 which makes the dominance test logarithmic.
 
+\paragraph{Order-event programme}
+The period-by-period graph lets an order raise the cumulative quantity to any reachable
+value, so a node has up to $S$ successors. We prove that this freedom is never needed: in a
+Pareto-optimal plan, an order raises the cumulative quantity to the smallest level that
+satisfies the requirements and positivity conditions of all periods until the next order,
+or to the minimum order quantity if that is larger (\cref{lem:cover}). The only exceptions
+are a few levels at which moving one case pack to the next order would empty the stock in
+that period. The proof is an exchange argument in the spirit of the Wagner--Whitin
+property \citep{WagnerWhitin1958}: excess units can be moved to the next order without
+changing the number of orders, which strictly reduces holding cost and does not reduce
+turnover. The algorithm therefore works on a graph of order events, in which each node
+branches over at most $\Tp$ periods of the next order, and remains exact
+(\cref{thm:event}).
+
 \paragraph{Provably safe reductions}
 Three reductions keep the graph small. First, every plan whose total quantity exceeds the
 largest requirement by more than one order step plus $2\varepsilon$ is dominated
@@ -203,7 +227,10 @@ positive average stock in both periods it affects (\cref{lem:D}). Third, the inn
 problem depends on the safety parameters only through the vector of requirements rounded
 up to reachable quantities (\cref{lem:memo}). Hence one inner problem is solved per
 distinct vector, and only the largest service level of each class is kept
-(\cref{cor:memo}). The classes are independent and are solved in parallel.
+(\cref{cor:memo}). Moreover, a class whose rounded requirements are componentwise at least
+those of another class with a service level at least as high cannot contribute to the
+front and is skipped (\cref{cor:classdom}). The remaining classes are independent and are
+solved in parallel.
 
 \paragraph{Continuous safety parameters}
 Each rounded requirement changes only when an affine function of $(\Ss,\SOT)$ crosses a
@@ -222,8 +249,9 @@ quantities. The Pareto-optimal decisions are then independent of the ordering co
 
 \paragraph{Complexity}
 With $S=\Theta(\mu T/r)$ states per layer and at most $O(T^2S)$ labels per node, one inner
-problem takes $O\bigl(T^{6}(\mu/r)^{3}\log(T\mu/r)\bigr)$ time in the worst case
-(\cref{app:complexity}). The bound is pseudo-polynomial and, as \cref{sec:results} shows,
+problem of the period-by-period programme takes $O\bigl(T^{6}(\mu/r)^{3}\log(T\mu/r)\bigr)$
+time in the worst case, and the order-event programme improves this by a factor of order
+$S/T$ (\cref{app:complexity}). The bound is pseudo-polynomial and, as \cref{sec:results} shows,
 predicts the observed growth closely.
 
 \paragraph{Implementation}
@@ -260,6 +288,33 @@ E5b runs NSGA-III \citep{DebJain2014} in pymoo \verPymoo{} \citep{BlankDeb2020} 
 Das--Dennis reference directions for one hour per run, with and without a problem-specific
 repair operator that enforces feasibility, the ordering rule of \cref{lem:D} and the
 lattice of order quantities, and compares the archives with the exact fronts.
+E6 solves the public benchmark described next.
+
+\paragraph{Public benchmark (E6)}
+The two industrial items and their normally distributed demand do not show how the
+algorithm behaves on the irregular demand of practice. We therefore built a benchmark from
+two public sources: the M5 data of Walmart unit sales at the item--store level
+\citep{Makridakis2022M5}, and the UCI Online Retail II transactions of a British online
+retailer \citep{Chen2012Retail}, which are licensed under CC BY 4.0. Sales are aggregated to
+weeks; for Online Retail II, cancelled quantities are netted against the original sales,
+so that orders cancelled at once do not appear as demand. Each planning window of $T=48$ weeks is preceded by 52 weeks of history, and all
+forecast and cost parameters are estimated from the history only, so that no information
+from the planning window is used. The mean $\mu$ and standard deviation $\sigma$ (at least
+$0.5$) of weekly demand serve as forecast parameters, and the unit price $p$ is the median
+selling price. Series are classified as smooth, erratic, intermittent or lumpy by the
+average inter-demand interval and the squared coefficient of variation of non-zero demand
+\citep{SyntetosBoylan2005}, and a stratified random sample is drawn from each class. M5
+contributes the last three non-overlapping windows of each selected series and Online
+Retail II the last window. Item parameters follow rules fixed before any run: lead time
+$L=2$ weeks, case pack $r=\max\{1,\operatorname{round}(\mu/2)\}$ with $\moq=r$ (so that
+\cref{as:lattice} holds), holding cost $h=0.1p/52$, $\MS=1$, and an ordering cost chosen so
+that the classical economic order quantity covers four weeks of mean demand. Series with
+fewer than four weeks of non-zero demand in any history, or without a price, are excluded.
+Every run is limited to \EsixTlim{} minutes of wall-clock time on six threads; a run that
+reaches the limit is reported as unsolved. To verify exactness on real demand, 30 randomly
+chosen instances are also solved without the pruning rules. The M5 data cannot be redistributed, so the repository contains the
+script that rebuilds the instances from the official files; the Online Retail II instances
+are included directly.
 
 \paragraph{Quality indicators}
 For approximate sets we report the share of points that lie on the exact front, the
@@ -286,8 +341,15 @@ programme at every horizon at which it finished (\cref{tab:e5a}). Over all runs 
 not a single exact point was dominated by any of the roughly $1.2\times10^8$ solutions
 evaluated by NSGA-III. During the formal analysis we found that an earlier version of the
 ordering rule omitted the second affected period. It removed 2 of 19\,372 Pareto points in
-one instance (Item~2, seed~42); all fronts reported here were produced with the
-corrected rule, which reproduces the front of the unpruned programme.
+one instance (Item~2, seed~42). A second, purely numerical defect was found when the
+faster algorithm was compared with the original one: the final filter compared service
+levels as floating-point values with a small tolerance, and near $\CSL=1$, where
+$\Phi$ is not resolved in double precision, this occasionally discarded non-dominated
+points. The service level is now compared through $B=\Ss+\mu\SOT$, which is exact because
+$\Phi$ is strictly increasing. All fronts reported here were produced with both
+corrections, and the complete fronts of E2, E4 and of 30 randomly chosen E6 instances are
+identical, within the printed precision, to those of the period-by-period programme run
+over all classes and without any pruning.
 
 \paragraph{Complete fronts at $T=48$}
 \Cref{tab:e2} summarises E2. A complete front contains tens of thousands of
@@ -424,6 +486,44 @@ large gap, which becomes visible only against the exact reference.
   \label{fig:nsga}
 \end{figure}
 
+\paragraph{Public benchmark}
+\Cref{tab:e6} and \cref{fig:e6} report E6. Of the \EsixInst{} instances (\EsixSeries{}
+series), \EsixSolved{} (\EsixPctSolved\%) were solved exactly within the time limit, with a
+median time of \EsixMedTime{} seconds and a maximum of \EsixMaxTime{} seconds; the solved
+instances required \EsixTotalMin{} minutes of computing time in total. The remaining
+\EsixTimeout{} instances reached the limit. They are explained by the complexity analysis
+rather than by the demand class. The number of states per layer grows with the realised
+demand of the planning window divided by the case pack, $S=\Theta(\sum_t D(t)/r)$, whereas
+the case pack is set from the history. Series whose sales rise sharply between history and
+planning window, typically products that were introduced or out of stock during the
+history, therefore yield a ratio of window demand to case pack far above the intended
+value of about two. \Cref{fig:e6}(c) shows that computing time is governed by this ratio
+across all classes, as predicted by the bound of \cref{app:complexity}. In \EsixChkOK{} of \EsixChkN{}
+reference runs without pruning, the front was identical to that of the algorithm, which
+confirms the reductions of \cref{sec:method} on irregular real demand.
+
+\begin{table}[t]
+  \centering
+  \caption{Public benchmark (E6): median and interquartile range per source and demand
+  class. ``At limit'' counts runs stopped by the time limit; $\mu$, $\mu/r$ refer to all
+  instances, the remaining columns to solved instances. Times are per instance with the
+  continuous outer domain.}
+  \label{tab:e6}
+  \resizebox{\textwidth}{!}{\tabin{tab_e6.tex}}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figin{\textwidth}{fig_e6.pdf}
+  \caption{Public benchmark (E6): (a) demand classes of the selected series by average
+  inter-demand interval (ADI) and squared coefficient of variation; dashed lines are the
+  cut-offs of \citet{SyntetosBoylan2005}; circles M5, triangles Online Retail II;
+  (b) computing time per solved instance by class (S smooth, E erratic, I intermittent,
+  L lumpy); (c) computing time against the realised weekly demand of the planning window
+  divided by the case pack $r$, with runs stopped at the time limit marked by crosses.}
+  \label{fig:e6}
+\end{figure}
+
 %=====================================================================================
 \section{Discussion}\label{sec:discussion}
 
@@ -452,7 +552,9 @@ horizons or very small rounding values will need approximation with guarantees; 
 $\varepsilon$-Pareto variant of the label-setting procedure is a natural candidate. The
 service-level objective saturates near one, and many Pareto points differ only in its
 eighth decimal; a decision maker would treat these as equivalent, which suggests
-presenting the front with a resolution chosen by the user. Finally, the parameters of the
+presenting the front with a resolution chosen by the user. The cycle service level of the model assumes normally distributed demand, which fits
+intermittent and lumpy series poorly; on these classes the service objective should be
+read as a nominal index rather than as a probability. Finally, the parameters of the
 industrial items were reconstructed from published information and may differ in detail
 from the company data.
 
@@ -478,9 +580,12 @@ evolutionary algorithm. Exact fronts make interactive lot sizing verifiable and 
 the reference that learning-based methods need.
 
 \section*{Data and code availability}
-The C++ implementation, the baseline scripts, the instance generator and the script that
-produces every table and figure are available at
-\url{https://github.com/USERNAME/lsdp}.
+The C++ implementation, the baseline scripts, the instance generator, the benchmark
+instances with their exact Pareto fronts, and the script that produces every table and
+figure are available at \url{https://github.com/USERNAME/lsdp}. The M5 data are available
+from the competition website and are not redistributed; the repository contains the script
+that rebuilds the M5 instances from the official files. The UCI Online Retail II data are
+used under the CC BY 4.0 licence.
 
 \section*{Declaration of generative AI use}
 During the preparation of this work the author used an AI assistant to help draft

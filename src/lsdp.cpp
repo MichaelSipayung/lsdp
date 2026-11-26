@@ -36,6 +36,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <string>
 #include <map>
 #include <numeric>
 #include <random>
@@ -49,6 +51,7 @@
 using namespace std;
 
 // ---------------------------------------------------------------- instance
+constexpr double kEps = 1.0;  // positivity threshold: Ibar(t) >= kEps (domain of ITO)
 struct Instance {
   int T = 48, L = 5;
   double p = 134.0, c = 200.0, h = 134.0 * 0.1 / 52.0;
@@ -64,9 +67,33 @@ static double Phi(double z) { return 0.5 * erfc(-z / sqrt(2.0)); }
 // optional overrides of the preset parameters (negative = keep preset)
 struct Overrides {
   double mu = -1, cv = -1, c = -1, hfrac = -1, MS = -1;
-  long r = -1;  // sets moq = r
+  long r = -1;  // sets moq = r unless --moq is given as well
   int L = -1;
+  // external instances (benchmark data): demand path from a file and item parameters
+  string demand_file;     // one demand value per line; "t,D" lines accepted (last field used)
+  double p = -1, sigma = -1;
+  long moq = -1;
 };
+
+// reads the demand path; lines whose last comma-separated field is not an integer >= 0
+// (e.g. a header) are skipped
+static vector<long> read_demand(const string& path) {
+  ifstream f(path);
+  if (!f) { fprintf(stderr, "cannot open demand file %s\n", path.c_str()); exit(4); }
+  vector<long> d;
+  string line;
+  while (getline(f, line)) {
+    auto k = line.find_last_of(',');
+    string fld = (k == string::npos) ? line : line.substr(k + 1);
+    try {
+      size_t pos = 0;
+      double x = stod(fld, &pos);
+      if (pos == 0 || x < 0 || x != floor(x)) continue;
+      d.push_back((long)x);
+    } catch (...) { continue; }
+  }
+  return d;
+}
 
 Instance make_instance(int sku, int T, unsigned seed, const Overrides& ov = Overrides()) {
   Instance in;
@@ -87,16 +114,37 @@ Instance make_instance(int sku, int T, unsigned seed, const Overrides& ov = Over
   if (ov.MS > 0) in.MS = ov.MS;
   if (ov.r > 0) { in.r = ov.r; in.moq = ov.r; }
   if (ov.L >= 0) in.L = ov.L;
-  mt19937_64 g(seed);
-  normal_distribution<double> nd(in.mu, in.sigma);
+  if (ov.p > 0) { in.p = ov.p; in.h = in.p * (ov.hfrac > 0 ? ov.hfrac : 0.1) / 52.0; }
+  if (ov.sigma > 0) in.sigma = ov.sigma;
+  if (ov.moq > 0) in.moq = ov.moq;
+  // Assumption A2 (moq is a positive multiple of r) is required by Lemma D and Prop. A.10
+  if (in.r <= 0 || in.moq <= 0 || in.moq % in.r != 0) {
+    fprintf(stderr, "invalid instance: moq=%ld must be a positive multiple of r=%ld (Assumption A2)\n",
+            in.moq, in.r);
+    exit(4);
+  }
   in.D.assign(T + 1, 0);
   in.cumD.assign(T + 1, 0);
-  for (int t = 1; t <= T; ++t) {
-    in.D[t] = max(0L, lround(nd(g)));
-    in.cumD[t] = in.cumD[t - 1] + in.D[t];
+  if (!ov.demand_file.empty()) {  // external demand path (mu, sigma are forecast parameters)
+    auto d = read_demand(ov.demand_file);
+    if ((int)d.size() < T) {
+      fprintf(stderr, "demand file %s has %zu values, T=%d needed\n", ov.demand_file.c_str(), d.size(), T);
+      exit(4);
+    }
+    for (int t = 1; t <= T; ++t) in.D[t] = d[t - 1];
+  } else {
+    mt19937_64 g(seed);
+    normal_distribution<double> nd(in.mu, in.sigma);
+    for (int t = 1; t <= T; ++t) in.D[t] = max(0L, lround(nd(g)));
   }
-  // opening stock covers the uninfluenceable periods 1..L plus one period
-  in.I0 = in.cumD[in.L] + lround(in.mu);
+  for (int t = 1; t <= T; ++t) in.cumD[t] = in.cumD[t - 1] + in.D[t];
+  // opening stock covers the uninfluenceable periods 1..L plus one period (at least kEps units,
+  // so that Assumption A1 holds also for slow movers with mu < 0.5)
+  in.I0 = in.cumD[in.L] + max(lround(in.mu), (long)ceil(kEps));
+  for (int t = 1; t <= in.L; ++t) {  // Assumption A1, checked explicitly
+    double ib = in.I0 - 0.5 * (in.cumD[t - 1] + in.cumD[t]);
+    if (ib < kEps) { fprintf(stderr, "invalid instance: Assumption A1 violated at t=%d\n", t); exit(4); }
+  }
   return in;
 }
 
@@ -175,7 +223,6 @@ vector<double> requirement(const Instance& in, double SS, double SOT) {
 // entry with sx' <= sx has ito' >= ito  -> O(k log n) instead of O(n).
 bool g_fast = true;  // false: reference implementation (linear scans), for verification
 bool g_lemmaD = true;  // restrict ordering transitions by Lemma D (order only when needed)
-constexpr double kEps = 1.0;  // positivity threshold: Ibar(t) >= kEps (domain of ITO)
 bool g_probes = false;  // continuous mode: also add sector probes (not needed, see Theorem 3)
 bool g_noito = false;  // drop ITO (bi-objective POC/HC sub-model, used for the MILP comparison)
 double g_fixSS = -1, g_fixSOT = -1;  // evaluate a single outer point (SS, SOT) if set
@@ -313,6 +360,155 @@ vector<InnerPoint> solve_inner(const Instance& in, const vector<double>& beta,
   return nd;
 }
 
+// ---------------------------------------------------------------- inner DP, order-event form
+// Theorem (order up to the covering level). In every Pareto-optimal plan, an order placed in
+// period tau with pre-order cumulative quantity x' and followed by the next order in period
+// tau' (tau' = T'+1 if it is the last order) raises X to X0 = max(ceil_r(N), x' + moq), where
+// N = max( max_{s in [tau, tau'-1]} beta_s, max_{s in [tau+1, tau'-1]} (eps - b_s),
+//          2 (eps - b_tau) - x' ),
+// or to X0 + i r (i >= 1) only while b_{tau'} + X0 + i r < eps. Otherwise moving r units
+// to the next order (dropping them if tau' = T'+1) keeps feasibility, the number of orders
+// and X(T'), lowers HC strictly and does not lower ITO. Hence a label-setting DP over order
+// events (tau, x') with at most T' successor periods per node is exact.
+bool g_cover = true;  // use the order-event DP (false: period-by-period DP of solve_inner)
+bool g_classdom = true;  // skip requirement classes dominated by another class (exact)
+
+vector<InnerPoint> solve_inner_cover(const Instance& in, const vector<double>& beta,
+                                     long Xmax, size_t* label_count = nullptr) {
+  (void)Xmax;
+  const int Tp = in.T - in.L;
+  const long r = in.r, moq = in.moq;
+  vector<double> b(Tp + 2, 0.0), num(Tp + 2, 0.0);
+  for (int tau = 1; tau <= Tp; ++tau) {
+    const int t = tau + in.L;
+    b[tau] = in.I0 - 0.5 * (in.cumD[t - 1] + in.cumD[t]);
+    num[tau] = g_noito ? 0.0 : in.D[t] + in.sigma;
+  }
+  double C0 = 0.0, ito_early = 0.0;
+  for (int t = 1; t <= in.T; ++t) C0 += in.I0 - 0.5 * (in.cumD[t - 1] + in.cumD[t]);
+  for (int t = 1; t <= in.L; ++t)
+    ito_early += (in.D[t] + in.sigma) / (in.I0 - 0.5 * (in.cumD[t - 1] + in.cumD[t]));
+  auto ceil_r = [&](double y) -> long {
+    if (y <= 1e-9) return 0;
+    return r * (long)ceil((y - 1e-9) / (double)r);
+  };
+  // nodes: per period tau, map x' -> node id; labels per node (staircases while open)
+  struct Node { int tau; long x; KStairs st; vector<Label> lab; };
+  vector<Node> nodes;
+  vector<map<long, int>> idx(Tp + 2);
+  auto node_of = [&](int tau, long x) -> int {
+    auto it = idx[tau].find(x);
+    if (it != idx[tau].end()) return it->second;
+    nodes.push_back({tau, x, KStairs(Tp + 1), {}});
+    return idx[tau][x] = (int)nodes.size() - 1;
+  };
+  map<long, int> term_idx;  // terminal X(T') -> node id (tau = Tp+1)
+  auto term_of = [&](long x) -> int {
+    auto it = term_idx.find(x);
+    if (it != term_idx.end()) return it->second;
+    nodes.push_back({Tp + 1, x, KStairs(Tp + 1), {}});
+    return term_idx[x] = (int)nodes.size() - 1;
+  };
+  // prefix without orders: X = 0 on periods 1..tau1-1
+  {
+    double R = 0.0;
+    for (int tau1 = 1; tau1 <= Tp + 1; ++tau1) {
+      // periods 1..tau1-1 feasible with X = 0 ?
+      if (tau1 >= 2) {
+        const int s = tau1 - 1;
+        if (beta[s] > 1e-9 || b[s] < kEps) break;
+        R += num[s] / b[s];
+      }
+      Label L{0, 0.0, R, -1, -1};
+      int id = (tau1 <= Tp) ? node_of(tau1, 0) : term_of(0);
+      stair_insert(nodes[id].st, L);
+    }
+  }
+  size_t generated = 0;
+  for (int tau = 1; tau <= Tp; ++tau) {
+    // node ids of this period (map iteration is in increasing x', ids are stable)
+    vector<int> ids;
+    for (auto& [x, id] : idx[tau]) ids.push_back(id);
+    for (int id : ids) {
+      {  // close the node: compact its staircases into a label vector
+        Node& nd = nodes[id];
+        for (auto& v : nd.st) for (auto& L : v) nd.lab.push_back(L);
+        KStairs().swap(nd.st);
+      }
+      const long xp = nodes[id].x;
+      const int nlab = (int)nodes[id].lab.size();
+      if (!nlab) continue;
+      double needB = -1e300, needE = -1e300;  // running maxima over the covered interval
+      const double needT = 2.0 * (kEps - b[tau]) - (double)xp;
+      for (int tn = tau + 1; tn <= Tp + 1; ++tn) {
+        const int s = tn - 1;  // last covered period
+        needB = max(needB, beta[s]);
+        if (s >= tau + 1) needE = max(needE, kEps - b[s]);
+        const double N = max(needB, max(needE, needT));
+        long X = max(ceil_r(N), xp + moq);
+        while (true) {
+          // labels of the arc: one order at tau, X constant on [tau, tn-1]
+          const double Ib0 = b[tau] + 0.5 * (double)(xp + X);
+          if (Ib0 >= kEps - 1e-12) {
+            double dR = num[tau] / Ib0;
+            for (int u = tau + 1; u <= s; ++u) dR += num[u] / (b[u] + (double)X);
+            const double dW = (double)X * (tn - tau);
+            int to = (tn <= Tp) ? node_of(tn, X) : term_of(X);
+            for (int a = 0; a < nlab; ++a) {
+              const Label& src = nodes[id].lab[a];
+              Label L{src.k + 1, src.sx + dW, src.ito + dR, id, a};
+              stair_insert(nodes[to].st, L);
+              ++generated;
+            }
+          }
+          // extra level only while the exchange could break Ibar >= eps at the next order
+          if (tn > Tp || b[tn] + (double)(X + r) >= kEps) break;
+          X += r;
+        }
+      }
+    }
+  }
+  if (label_count) *label_count = generated;
+  vector<InnerPoint> out;
+  for (auto& [XT, id] : term_idx) {
+    Node& nd = nodes[id];
+    for (auto& v : nd.st) for (auto& L : v) nd.lab.push_back(L);
+    for (int a = 0; a < (int)nd.lab.size(); ++a) {
+      const Label& L = nd.lab[a];
+      InnerPoint P;
+      P.k = L.k;
+      P.POC = in.p * XT + in.c * L.k;
+      P.HC = in.h * (C0 + L.sx - 0.5 * XT);
+      P.ITO = ito_early + L.ito;
+      P.Q.assign(in.T + 1, 0);
+      long xnext = XT;
+      int pn = L.prev_state, pl = L.prev_label;
+      while (pn >= 0) {  // walk back over order events
+        const Node& q = nodes[pn];
+        P.Q[q.tau] = xnext - q.x;
+        xnext = q.x;
+        const Label& pL = q.lab[pl];
+        pn = pL.prev_state; pl = pL.prev_label;
+      }
+      out.push_back(move(P));
+    }
+  }
+  // non-dominated filter over terminal nodes (sorted sweep)
+  sort(out.begin(), out.end(), [](const InnerPoint& a, const InnerPoint& b2) {
+    if (fabs(a.POC - b2.POC) > 1e-7) return a.POC < b2.POC;
+    if (fabs(a.HC - b2.HC) > 1e-7) return a.HC < b2.HC;
+    return a.ITO > b2.ITO;
+  });
+  vector<InnerPoint> nd;
+  for (auto& P : out) {
+    bool dom = false;
+    for (const auto& A : nd)
+      if (A.POC <= P.POC + 1e-7 && A.HC <= P.HC + 1e-7 && A.ITO >= P.ITO - 1e-9) { dom = true; break; }
+    if (!dom) nd.push_back(move(P));
+  }
+  return nd;
+}
+
 // ---------------------------------------------------------------- brute force
 static void brute_rec(const Instance& in, const vector<double>& beta, long Xmax,
                       int tau, long xp, int k, double sx, double ito,
@@ -407,14 +603,16 @@ int run_verify(int nseeds) {
       g_fast = false; g_lemmaD = false; auto A2 = solve_inner(in, beta, Xmax_dp);
       g_fast = true; g_lemmaD = true;
       if (!same_front(A, A2)) printf("  ! fast and reference DP differ\n");
+      auto Cv = solve_inner_cover(in, beta, Xmax_dp);
       auto B = brute_inner(in, beta, Xmax_bf);
-      bool ok = same_front(A, B);
+      if (!same_front(Cv, B)) printf("  ! order-event DP differs from brute force\n");
+      bool ok = same_front(A, B) && same_front(Cv, B);
       ++total; pass += ok;
       printf("seed %2d sku %d  T=%d  SS=%6.1f SOT=%.3f  |front| DP=%3zu BF=%3zu  %s\n",
              seed, sku, in.T, SS, SOT, A.size(), B.size(), ok ? "OK" : "MISMATCH");
     }
   }
-  printf("verify: %d / %d instances identical (DP with lemma bound vs brute force with 3x bound)\n",
+  printf("verify: %d / %d instances identical (period DP and order-event DP vs brute force with 3x bound)\n",
          pass, total);
   return pass == total ? 0 : 1;
 }
@@ -431,11 +629,9 @@ struct FrontPoint {
 // Every requirement beta_tau = SS + SOT*D(tau+L) + c_tau is rounded up to the lattice;
 // the inner problem is constant on each cell of the arrangement of the lines
 //   SS + D(tau+L)*SOT = lambda - c_tau   (lambda in lattice)
-// and CSL increases with B = SS + mu*SOT, whose maximum over a cell (closed on its
-// sides) has its supremum at a vertex of the cell closure. That vertex need NOT
-// belong to the cell (it may lie on an open side), so the supremum may not be
-// attained: the continuous Pareto front is in general not closed. See
-// cell_candidates() for the exact enumeration of cells and their suprema.
+// and CSL increases with B = SS + mu*SOT. By the vertex theorem (appendix) every point of
+// the domain is weakly dominated by an arrangement vertex with a componentwise smaller
+// rounded requirement vector and a larger or equal B, so the vertices suffice.
 struct Line { double a, b, rhs; };  // a*SS + b*SOT = rhs
 vector<Line> g_lines;               // lines of the last arrangement (used by cell probes)
 vector<pair<double, double>> arrangement_vertices(const Instance& in,
@@ -582,6 +778,38 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
       groups[key] = {oc.SS, oc.SOT, oc.Bsup, oc.attained};
   }
   vector<pair<vector<long>, Rep>> G(groups.begin(), groups.end());
+  const size_t nclasses = G.size();
+  // Class dominance (exact, Lemma A.9): if kappa' <= kappa componentwise and B' >= B, every
+  // plan feasible for kappa is feasible for kappa' with at least the same CSL, so class kappa
+  // cannot contribute a point that is not weakly dominated. Processing classes by decreasing
+  // B (ties: smaller sum of kappa first) and testing against the kept classes is sufficient
+  // by transitivity.
+  if (g_classdom && G.size() > 1) {
+    vector<long> ord(G.size());
+    iota(ord.begin(), ord.end(), 0);
+    vector<long> ksum(G.size(), 0);
+    for (size_t g = 0; g < G.size(); ++g)
+      ksum[g] = accumulate(G[g].first.begin(), G[g].first.end(), 0L);
+    sort(ord.begin(), ord.end(), [&](long a, long b) {
+      if (fabs(G[a].second.B - G[b].second.B) > 1e-12) return G[a].second.B > G[b].second.B;
+      return ksum[a] < ksum[b];
+    });
+    vector<long> kept;
+    for (long g : ord) {
+      const auto& kg = G[g].first;
+      bool dom = false;
+      for (long h : kept) {
+        const auto& kh = G[h].first;
+        bool le = true;
+        for (size_t i = 1; i < kg.size() && le; ++i) le = kh[i] <= kg[i];
+        if (le) { dom = true; break; }
+      }
+      if (!dom) kept.push_back(g);
+    }
+    vector<pair<vector<long>, Rep>> G2;
+    for (long g : kept) G2.push_back(G[g]);
+    G.swap(G2);
+  }
   auto t1 = chrono::steady_clock::now();
   // 2) solve inner problems in parallel
   vector<vector<FrontPoint>> res(G.size());
@@ -596,7 +824,7 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
     double bmax = *max_element(beta.begin() + 1, beta.end());
     long Xmax = max(0L, (long)ceil(bmax)) + max(in.moq, in.r) + (long)ceil(2 * kEps);  // Lemma 2
     size_t lc = 0;
-    auto pts = solve_inner(in, beta, Xmax, &lc);
+    auto pts = g_cover ? solve_inner_cover(in, beta, Xmax, &lc) : solve_inner(in, beta, Xmax, &lc);
     labs[gi] = lc;
     double CSL = Phi(R.B / in.sigma);  // supremum over the cell (attained flag below)
     for (auto& P : pts)
@@ -611,7 +839,10 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
   for (auto& v : res) ncand += v.size();
   vector<long> order(G.size());
   iota(order.begin(), order.end(), 0L);
-  auto cslOf = [&](long g) { return Phi(G[g].second.B / in.sigma); };
+  // CSL = Phi(B/sigma) is strictly increasing in B, so the service objective is compared
+  // through B itself: near CSL = 1 the double value of Phi saturates and would merge
+  // distinct service levels (differences below 1e-15) into one, which is not transitive.
+  auto cslOf = [&](long g) { return G[g].second.B; };
   sort(order.begin(), order.end(), [&](long a, long b) { return cslOf(a) > cslOf(b); });
   auto dom3 = [](const FrontPoint& a, const FrontPoint& b) {  // a weakly dominates b in 3-D
     return a.POC <= b.POC + 1e-7 && a.HC <= b.HC + 1e-7 && a.ITO >= b.ITO - 1e-9;
@@ -623,7 +854,7 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
     // batch of groups with identical CSL
     double c = cslOf(order[oi]);
     vector<FrontPoint> batch;
-    while (oi < order.size() && fabs(cslOf(order[oi]) - c) <= 1e-15) {
+    while (oi < order.size() && fabs(cslOf(order[oi]) - c) <= 1e-9) {  // equal B (float noise)
       for (auto& p : res[order[oi]]) batch.push_back(move(p));
       ++oi;
     }
@@ -663,14 +894,14 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
   auto t3 = chrono::steady_clock::now();
   auto sec = [](auto a, auto b) { return chrono::duration<double>(b - a).count(); };
   size_t totlab = accumulate(labs.begin(), labs.end(), (size_t)0);
-  printf("instance: SKU%d T=%d L=%d moq=r=%ld mu=%.2f sigma=%.2f c=%.2f h=%.5f p=%.2f MS=%.2f seed=%u I0=%ld\n",
-         sku, in.T, in.L, in.moq, in.mu, in.sigma, in.c, in.h, in.p, in.MS, seed, in.I0);
+  printf("instance: SKU%d T=%d L=%d moq=%ld r=%ld mu=%.2f sigma=%.2f c=%.2f h=%.5f p=%.2f MS=%.2f seed=%u I0=%ld\n",
+         sku, in.T, in.L, in.moq, in.r, in.mu, in.sigma, in.c, in.h, in.p, in.MS, seed, in.I0);
   if (continuous)
-    printf("outer: continuous (arrangement) -> %ld candidates (vertices + sector probes), %zu distinct requirement vectors\n",
-           ncomb, G.size());
+    printf("outer: continuous (arrangement) -> %ld candidates (arrangement vertices%s), %zu distinct requirement vectors, %zu non-dominated classes solved\n",
+           ncomb, g_probes ? " + sector probes" : "", nclasses, G.size());
   else
-    printf("outer grid: dSS=%.3f dSOT=%.3f -> %ld combinations, %zu distinct requirement vectors\n",
-           dSS, dSOT, ncomb, G.size());
+    printf("outer grid: dSS=%.3f dSOT=%.3f -> %ld combinations, %zu distinct requirement vectors, %zu non-dominated classes solved\n",
+           dSS, dSOT, ncomb, nclasses, G.size());
   printf("labels generated (total): %zu   candidate points: %zu   Pareto front: %zu\n",
          totlab, ncand, front.size());
   printf("time: grouping %.3fs  inner DPs %.3fs  final filter %.3fs  TOTAL %.3fs\n",
@@ -792,12 +1023,18 @@ int main(int argc, char** argv) {
     else if (a == "--MS") ov.MS = stod(v);
     else if (a == "--r") ov.r = stol(v);
     else if (a == "--L") ov.L = stoi(v);
+    else if (a == "--demand") ov.demand_file = v;
+    else if (a == "--p") ov.p = stod(v);
+    else if (a == "--sigma") ov.sigma = stod(v);
+    else if (a == "--moq") ov.moq = stol(v);
     else if (a == "--ref") { g_fast = (stoi(v) == 0); g_lemmaD = g_fast; }
     else if (a == "--noito") g_noito = (stoi(v) != 0);
     else if (a == "--SS") g_fixSS = stod(v);
     else if (a == "--SOT") g_fixSOT = stod(v);
     else if (a == "--probes") g_probes = (stoi(v) != 0);
     else if (a == "--lemmaD") g_lemmaD = (stoi(v) != 0);
+    else if (a == "--cover") g_cover = (stoi(v) != 0);
+    else if (a == "--classdom") g_classdom = (stoi(v) != 0);
     else { fprintf(stderr, "unknown option %s\n", a.c_str()); return 2; }
   }
   if (mode == "verify") return run_verify(seeds);

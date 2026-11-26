@@ -32,6 +32,7 @@ import numpy as np  # noqa: E402
 ap = argparse.ArgumentParser()
 ap.add_argument("--suite", default="suite")
 ap.add_argument("--out", default="paper")
+ap.add_argument("--bench", default="bench/instances")
 a = ap.parse_args()
 FIG = os.path.join(a.out, "figures")
 TAB = os.path.join(a.out, "tables")
@@ -56,7 +57,9 @@ def log_stats(path):
     s = read(path)
     return {"time": num(r"TOTAL ([\d.]+)s", s), "labels": num(r"labels generated \(total\): (\d+)", s),
             "front": num(r"Pareto front: (\d+)", s), "keys": num(r", (\d+) distinct requirement vectors", s),
-            "cands": num(r"-> (\d+) (?:combinations|candidates)", s)}
+            "cands": num(r"-> (\d+) (?:combinations|candidates)", s),
+            "timeout": num(r"TIMEOUT (\d+)s", s),
+            "solvedcls": num(r"(\d+) non-dominated classes solved", s)}
 
 
 def ms(v, fmt="{:.2f}"):
@@ -103,10 +106,11 @@ for sku in (1, 2):
         if not L:
             continue
         rows.append(f"SKU {sku} & {outer} & {len(L)} & {ms([d['cands'] for d in L], '{:.0f}')} & "
-                    f"{ms([d['keys'] for d in L], '{:.0f}')} & {thousands([d['front'] for d in L])} & "
+                    f"{ms([d['keys'] for d in L], '{:.0f}')} & {ms([d['solvedcls'] for d in L], '{:.0f}')} & "
+                    f"{thousands([d['front'] for d in L])} & "
                     f"{ms([d['time'] for d in L])} \\\\")
-write("tab_e2.tex", "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule\n"
-      "Item & Outer domain & $n$ & Candidates & Classes $\\kappa$ & Front size & Time (s) \\\\\n\\midrule\n"
+write("tab_e2.tex", "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule\n"
+      "Item & Outer domain & $n$ & Candidates & Classes $\\kappa$ & Solved & Front size & Time (s) \\\\\n\\midrule\n"
       + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
 
 # ---------------------------------------------------------------- Fig. front projection
@@ -304,6 +308,125 @@ if os.path.exists(ex):
     ax.legend(frameon=False, fontsize=7)
     fig.savefig(os.path.join(FIG, "fig_nsga.pdf"))
     plt.close(fig)
+
+# ---------------------------------------------------------------- E6 public benchmark data
+CLS = ("smooth", "erratic", "intermittent", "lumpy")
+
+
+def q(v, f="{:.1f}"):
+    v = np.array([x for x in v if x == x])
+    if not len(v):
+        return "--"
+    return (f + " [" + f + ", " + f + "]").format(np.median(v), *np.percentile(v, [25, 75]))
+
+
+man = []
+for m in sorted(glob.glob(os.path.join(a.bench, "*", "manifest.csv"))):
+    man += list(csv.DictReader(open(m)))
+if man:
+    rows, tim, chk, allst = [], {}, [0, 0], []
+    for src in ("m5", "uci"):
+        for c in CLS:
+            R = [r for r in man if r["source"] == src and r["cls"] == c]
+            if not R:
+                continue
+            st_ = []
+            for r in R:
+                d = log_stats(f"{a.suite}/E6/{src}/{r['series']}_w{r['window']}.log")
+                d["mur"] = float(r["mu"]) / float(r["r"])
+                try:
+                    dem = [int(x.split(",")[-1]) for x in open(r["demand_file"]).read().split()[1:]]
+                    d["wr"] = sum(dem) / len(dem) / float(r["r"])   # realised window demand / r
+                except OSError:
+                    d["wr"] = float("nan")
+                d["src"], d["cls"] = src, c
+                st_.append(d)
+                allst.append(d)
+            done = [d for d in st_ if d["time"] == d["time"]]
+            nto = sum(1 for d in st_ if d["timeout"] == d["timeout"])
+            tim[(src, c)] = [d["time"] for d in done]
+            rows.append(f"{'M5' if src == 'm5' else 'Online Retail II'} & {c} & {len(R)} & {len(done)} & {nto} & "
+                        f"{q([float(r['mu']) for r in R])} & {q([d['mur'] for d in st_], '{:.2f}')} & "
+                        f"{q([d['keys'] for d in done], '{:.0f}')} & {q([d['front'] for d in done], '{:.0f}')} & "
+                        f"{q([d['time'] for d in done], '{:.2f}')} & "
+                        f"{max([d['time'] for d in done]) if done else float('nan'):.1f} \\\\")
+    for ref in glob.glob(f"{a.suite}/E6/*/*_ref.csv"):
+        base = ref[:-8] + ".csv"
+        if os.path.exists(base):
+            O = lambda f: {(round(float(r["POC"]), 4), round(float(r["HC"]), 6), round(float(r["CSL"]), 10),
+                            round(float(r["ITO"]), 8)) for r in csv.DictReader(open(f))}
+            chk[1] += 1
+            chk[0] += O(ref) == O(base)
+    write("tab_e6.tex", "\\begin{tabular}{@{}llrrrrrrrrr@{}}\n\\toprule\n"
+          "Source & Demand class & Inst. & Solved & At limit & $\\mu$ & $\\mu/r$ & Classes $\\kappa$ & Front size & "
+          "Time (s) & Max (s) \\\\\n\\midrule\n" + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
+    alltimes = [t for v in tim.values() for t in v]
+    write("e6_macros.tex",
+          f"\\newcommand{{\\EsixInst}}{{{len(man)}}}\n"
+          f"\\newcommand{{\\EsixSolved}}{{{len(alltimes)}}}\n"
+          f"\\newcommand{{\\EsixSeries}}{{{len({(r['source'], r['series']) for r in man})}}}\n"
+          f"\\newcommand{{\\EsixChkOK}}{{{chk[0]}}}\\newcommand{{\\EsixChkN}}{{{chk[1]}}}\n"
+          f"\\newcommand{{\\EsixMedTime}}{{{np.median(alltimes) if alltimes else float('nan'):.2f}}}\n"
+          f"\\newcommand{{\\EsixMaxTime}}{{{max(alltimes) if alltimes else float('nan'):.1f}}}\n"
+          f"\\newcommand{{\\EsixTotalMin}}{{{sum(alltimes)/60:.0f}}}\n"
+          f"\\newcommand{{\\EsixTimeout}}{{{sum(1 for d in allst if d['timeout'] == d['timeout'])}}}\n"
+          f"\\newcommand{{\\EsixTlim}}{{{int(max([d['timeout'] for d in allst if d['timeout'] == d['timeout']] or [1800]) / 60)}}}\n"
+          f"\\newcommand{{\\EsixPctSolved}}{{{100 * len(alltimes) / len(man):.1f}}}\n")
+    # figure: (a) classification of the selected series, (b) computing time per class
+    fig, ax = plt.subplots(1, 3, figsize=(7.2, 2.5), constrained_layout=True)
+    seen = {}
+    for r in man:
+        if r["window"] == "0":
+            seen[(r["source"], r["series"])] = r
+    cols = dict(zip(CLS, ("#1f4e79", "#c55a11", "#548235", "#7030a0")))
+    for src, mk in (("m5", "o"), ("uci", "^")):
+        for c in CLS:
+            P = [(float(r["ADI"]), float(r["CV2"])) for r in seen.values() if r["source"] == src and r["cls"] == c]
+            if P:
+                P = np.array(P)
+                ax[0].scatter(P[:, 0], P[:, 1], s=6, marker=mk, color=cols[c], alpha=0.7,
+                              label=c if src == "m5" else None)
+    ax[0].axvline(1.32, color="k", lw=0.6, ls="--")
+    ax[0].axhline(0.49, color="k", lw=0.6, ls="--")
+    ax[0].set_xscale("log")
+    ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax[0].xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax[0].set_xlabel("ADI (weeks)")
+    ax[0].set_ylabel("CV$^2$ of non-zero demand")
+    ax[0].legend(frameon=False, fontsize=6, loc="upper right", markerscale=1.5)
+    data, labels = [], []
+    for src in ("m5", "uci"):
+        for c in CLS:
+            v = tim.get((src, c), [])
+            if v:
+                data.append(np.maximum(v, 1e-3))
+                labels.append(f"{c[0].upper()}\n{'M5' if src == 'm5' else 'UCI'}")
+    if data:
+        ax[1].boxplot(data, tick_labels=labels, showfliers=True, flierprops=dict(markersize=2))
+        ax[1].set_yscale("log")
+        ax[1].tick_params(axis="x", labelsize=6)
+        ax[1].set_ylabel("time per instance (s)")
+    for c in CLS:
+        P = [(d["wr"], d["time"]) for d in allst if d["cls"] == c and d["time"] == d["time"]]
+        if P:
+            P = np.array(P)
+            ax[2].scatter(P[:, 0], np.maximum(P[:, 1], 1e-3), s=4, color=cols[c], alpha=0.6, label=c)
+    TO = [(d["wr"], d["timeout"]) for d in allst if d["timeout"] == d["timeout"]]
+    if TO:
+        TO = np.array(TO)
+        ax[2].scatter(TO[:, 0], TO[:, 1], s=14, marker="x", color="k", lw=0.8, label="time limit")
+    ax[2].set_xscale("log")
+    ax[2].set_yscale("log")
+    ax[2].xaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax[2].xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax[2].set_xlabel("window demand / $r$ (per week)")
+    ax[2].set_ylabel("time (s)")
+    ax[2].legend(frameon=False, fontsize=6)
+    for x, t in zip(ax, "abc"):
+        x.set_title(f"({t})", loc="left", fontsize=9)
+    fig.savefig(os.path.join(FIG, "fig_e6.pdf"))
+    plt.close(fig)
+    print(f"E6: {len(alltimes)}/{len(man)} solved, {sum(1 for d in allst if d['timeout'] == d['timeout'])} at time limit, exactness checks {chk[0]}/{chk[1]}")
 
 # ---------------------------------------------------------------- software versions
 def cmd(c):

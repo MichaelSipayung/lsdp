@@ -262,6 +262,107 @@ superset that serves every outer point.
   outer candidate set.
 \end{corollary}
 
+\begin{corollary}[Class dominance]\label{cor:classdom}
+  Let $\kappa$ and $\kappa'$ be rounded requirement vectors of two candidate outer points
+  with largest values $B$ and $B'$ in their classes. If $\kappa'\le\kappa$ componentwise and
+  $B'\ge B$, every outcome of class $\kappa$ is weakly dominated by an outcome of class
+  $\kappa'$. The class $\kappa$ can therefore be omitted without changing the front.
+\end{corollary}
+
+\begin{proof}
+  By \cref{lem:memo}, every plan feasible for $\kappa$ is feasible for $\kappa'$ and has the
+  same $(\POC,\HC,\ITO)$, while $\CSL=\Phi(B'/\sigma)\ge\Phi(B/\sigma)$.
+\end{proof}
+
+\noindent
+Because $\Phi$ is strictly increasing, the implementation compares service levels through
+$B$ rather than through the floating-point value of $\CSL$. Near $\CSL=1$ the value
+$\Phi(B/\sigma)$ is not resolved in double precision, and a comparison of $\CSL$ values with a
+tolerance would merge distinct service levels and, being intransitive, make the computed
+front depend on the order in which classes are processed. The implementation processes the classes by decreasing $B$, ties broken by increasing
+$\sum_\tau\kappa_\tau$, and keeps a class only if no kept class dominates it in the sense
+of \cref{cor:classdom}; by transitivity this removes exactly the dominated classes.
+
+%=====================================================================================
+\subsection{Order-event formulation}\label{app:event}
+
+The graph of \cref{app:inner} lets an order raise the cumulative quantity to any reachable
+value. We now show that, in a Pareto-optimal plan, the level reached by an order is
+determined, up to a few exceptional values, by the period of the next order. For a plan
+with an order in period $\tau$, let $\tau'$ be the period of the next order ($\tau'=\Tp+1$ if
+there is none), $x'=X(\tau-1)$, and define the covering requirement
+\begin{equation}\label{eq:cover}
+  N_{\tau\tau'}(x')=\max\Bigl\{\max_{\tau\le s<\tau'}\beta_s,\;
+    \max_{\tau<s<\tau'}(\eps-b_s),\; 2(\eps-b_\tau)-x'\Bigr\},
+\end{equation}
+which collects the service requirements and the positivity conditions of all periods in
+which the cumulative quantity stays at $X(\tau)$. Let $\lceil y\rceil_r$ denote the smallest
+non-negative multiple of $r$ that is at least $y$, and
+$X^0_{\tau\tau'}(x')=\max\{\lceil N_{\tau\tau'}(x')\rceil_r,\;x'+\moq\}$.
+
+\begin{lemma}[Order up to the covering level]\label{lem:cover}
+  Let \cref{as:initial,as:lattice} hold and consider a feasible plan with an order in period
+  $\tau$, next order in $\tau'$, $x'=X(\tau-1)$ and $X=X(\tau)$. If
+  $X\ge X^0_{\tau\tau'}(x')+r$ and either $\tau'=\Tp+1$ or $b_{\tau'}+X\ge\eps$, the plan is
+  dominated by a feasible plan with the same outer point.
+\end{lemma}
+
+\begin{proof}
+  By \cref{as:lattice} all cumulative quantities are multiples of $r$. Since
+  $X\ge x'+\moq+r$, the order satisfies $Q(\tau)\ge\moq+r$, so $Q(\tau)-r\in\cQ$. Move $r$
+  units from period $\tau$ to period $\tau'$, where $Q(\tau')+r\in\cQ$ because $\cQ\setminus\{0\}$
+  is closed under addition, or drop them if $\tau'=\Tp+1$. The new plan has $X'(s)=X-r$ for
+  $\tau\le s<\tau'$ and is unchanged elsewhere.
+
+  \emph{Feasibility.} Because $X-r\ge\lceil N_{\tau\tau'}(x')\rceil_r\ge N_{\tau\tau'}(x')$, the
+  requirements $X'(s)\ge\beta_s$ hold for $\tau\le s<\tau'$, the condition
+  $\Ibar'(\tau+L)=b_\tau+\tfrac12(x'+X-r)\ge\eps$ holds, and so does
+  $\Ibar'(s+L)=b_s+X-r\ge\eps$ for $\tau<s<\tau'$. If $\tau'\le\Tp$, then
+  $X(\tau')\ge X+\moq\ge X+r$, so
+  $\Ibar'(\tau'+L)=b_{\tau'}+\tfrac12\bigl(X-r+X(\tau')\bigr)\ge b_{\tau'}+X\ge\eps$. No other
+  period changes.
+
+  \emph{Dominance.} The number of orders is unchanged. If $\tau'\le\Tp$, $X(\Tp)$ is unchanged,
+  and $\sum_sX(s)$ decreases by $r(\tau'-\tau)>0$, so $\HC$ decreases strictly. If $\tau'=\Tp+1$,
+  $\POC$ decreases by $pr$ and $\HC$ changes by $h\bigl[-r(\Tp-\tau+1)+r/2\bigr]<0$. $\CSL$ is
+  unchanged, and no average stock increases, so $\ITO$ does not decrease.
+\end{proof}
+
+\begin{theorem}[Exactness of the order-event dynamic programme]\label{thm:event}
+  Let \cref{as:initial,as:lattice} hold. In every Pareto-optimal plan, each order in period
+  $\tau$ with next order in $\tau'$ raises the cumulative quantity to
+  $X=X^0_{\tau\tau'}(x')+ir$ with $i=0$, or with $i\ge1$ and $\tau'\le\Tp$ and
+  $b_{\tau'}+X<\eps$. Consequently, the label-setting algorithm on the graph whose nodes are
+  order events $(\tau,x')$, whose arcs lead from $(\tau,x')$ to $(\tau',X)$ for every
+  $\tau'\in\{\tau+1,\dots,\Tp+1\}$ and every such level $X$, and whose arc costs are
+  \begin{equation}
+    \Bigl(1,\;X(\tau'-\tau),\;\frac{D(\tau+L)+\sigma}{b_\tau+\frac12(x'+X)}
+      +\sum_{\tau<s<\tau'}\frac{D(s+L)+\sigma}{b_s+X}\Bigr),
+  \end{equation}
+  together with the order-free prefixes $X=0$ on periods $1,\dots,\tau_1-1$, returns exactly
+  the set of non-dominated outcome vectors of the inner problem.
+\end{theorem}
+
+\begin{proof}
+  Feasibility forces $X\ge N_{\tau\tau'}(x')$ and $X\ge x'+\moq$, and $X$ is a multiple of
+  $r$, so $X\ge X^0_{\tau\tau'}(x')$. A Pareto-optimal plan is not dominated, so by
+  \cref{lem:cover} either $X<X^0_{\tau\tau'}(x')+r$, that is $X=X^0_{\tau\tau'}(x')$, or
+  $\tau'\le\Tp$ and $b_{\tau'}+X<\eps$. Every Pareto-optimal plan is therefore a path of the
+  order-event graph, and every path of that graph is a feasible plan, because the level of
+  each arc satisfies all requirements and positivity conditions of the periods it covers.
+  Arc costs depend only on the arc, so the induction of \cref{thm:exact} applies verbatim
+  to the order events.
+\end{proof}
+
+\begin{remark}
+  The exceptional levels with $i\ge1$ arise because moving $r$ units to the next order lowers
+  the average stock in that period by $r/2$, which matters only when the stock there is close
+  to $\eps$. In our instances they are rare. A node now has at most $\Tp$ successor periods
+  instead of up to $S$ successor quantities. For a fixed node and successor period, the
+  levels are generated in increasing order, and the loop stops at the first level with
+  $b_{\tau'}+X\ge\eps$.
+\end{remark}
+
 %=====================================================================================
 \subsection{The continuous outer domain}\label{app:continuous}
 
@@ -373,10 +474,19 @@ is polynomial in $T$ for a fixed ratio $\mu/r$. The empirical exponents of exper
 agree with it: time grows as $T^{6.0\text{--}6.4}$ and as $(\mu/r)^{3.5}$, the stored
 labels grow as $T^{4.9\text{--}5.0}$, and time grows as $(\text{labels})^{1.25}$. The
 bound is not tight in practice, since \cref{lem:D} removes most ordering arcs and the
-staircases remain far below $N$. The number of inner problems is the number of
+staircases remain far below $N$. The order-event programme of \cref{thm:event} has at most $\Tp S$ nodes, each with at
+most $\Tp(1+e)$ arcs, where $e$ bounds the number of exceptional levels per arc
+($e\le\max_t D(t)/(2r)+1$). Evaluating an arc takes $O(T)$ operations and extends at most
+$N$ labels, so one inner problem costs
+\begin{equation}\label{eq:complexity-event}
+  O\bigl(\Tp^{2}S(1+e)\,(T+N\log N)\bigr)=O\bigl(T^{4}S^{2}(1+e)\log(TS)\bigr),
+\end{equation}
+which improves on \eqref{eq:complexity} by a factor of order $S/(T(1+e))$, that is, exactly
+in the instances where the ratio of demand to case pack is large. The number of inner problems is the number of
 distinct vectors $\kappa$, which is at most $\lvert V\rvert=O\bigl((\Tp\lvert\Lambda\rvert)^2\bigr)$
 for the continuous domain (here $\lvert\Lambda\rvert$ is the number of relevant lattice
-values) and at most the grid size in grid mode.
+values) and at most the grid size in grid mode; \cref{cor:classdom} reduces it further, in our
+instances by a factor of up to about one thousand.
 
 %=====================================================================================
 \subsection{Numerical verification of the theoretical results}\label{app:verification}
@@ -399,6 +509,12 @@ corrected code. Experiment labels refer to \cref{sec:design}.
         the DP without pruning (\cref{rem:c}); all 40 E2 fronts (2 SKUs $\times$ 10 seeds
         $\times$ grid/continuous) are identical before and after the correction. E5a: on 10 + 16 outer points at $T=48$, the
         $\varepsilon$-constraint MILP solved with HiGHS gives identical fronts. \\
+    \Cref{thm:event,cor:classdom}
+      & E1: the order-event programme equals exhaustive enumeration on 100/100 random
+        instances; the complete fronts obtained with the order-event programme and class
+        dominance are identical to those of the period-by-period programme over all
+        classes and without any pruning, on all 40 fronts of E2, all 45 fronts of E4 and 30
+        randomly chosen instances of E6, within the printed precision. \\
     \Cref{thm:vertex}
       & E1: for 20 instances (2 SKUs $\times$ 10 seeds) $\times$ $10^6$ random points of
         $\Omega$ (one quarter on the upper boundary), every point has a vertex with
