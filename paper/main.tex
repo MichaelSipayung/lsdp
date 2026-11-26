@@ -94,12 +94,15 @@ Pareto optimal solutions. Related work by \citet{Heikkinen2023} follows the same
 interactive philosophy with forecast-driven demand.
 
 The quality of such a process depends on the quality of the solutions it navigates. In
-the published applications the set is approximated by a general-purpose solver, and
-nothing guarantees that the plans offered to the decision maker are Pareto optimal or
-that the set covers the attainable trade-offs. A decision maker who settles for a plan
-that is in fact dominated pays for the approximation without knowing it. Whether the
-\emph{exact} front of this model can be computed fast enough to support interactive use
-has not been studied.
+the published applications the set is not certified: nothing guarantees that the plans
+offered to the decision maker are Pareto optimal or that the set covers the attainable
+trade-offs. A decision maker who settles for a plan that is in fact dominated pays for the
+approximation without knowing it. Exact multiobjective lot sizing has been studied before,
+most notably by \citet{Gutierrez2004}, but only for cost objectives under demand
+scenarios, with a zero-inventory-ordering restriction that the authors treat as an
+approximation of the efficient set, and for instances of a few periods. Whether the
+\emph{exact} front of a model with safety instruments, service and turnover objectives can
+be computed fast enough to support interactive use has not been studied.
 
 This paper answers the question affirmatively. Our first contribution is structural:
 once the safety parameters are fixed, a cumulative reformulation turns the inner problem
@@ -129,31 +132,55 @@ and limitations, and \cref{sec:conclusion} concludes.
 %=====================================================================================
 \section{Related work}\label{sec:related}
 
+\paragraph{Lot sizing with one and with several objectives}
 Single-item dynamic lot sizing with a single cost objective is polynomially solvable by
 dynamic programming in its classical form, and a large body of work extends it to
-capacities, backlogging, remanufacturing and stochastic demand \citep{Brahimi2017}.
-Multiobjective variants are fewer. The models of Kania and co-authors add service and
-turnover objectives and safety instruments to the classical cost objective
-\citep{Kania2021ICCL,Kania2022CIE}, and DESMILS extends the approach to many items by
-solving the single-item problem for a few representative items only
-\citep{Kania2024DESMILS}. These works concentrate on modelling and on the interactive
-process. The solution sets are produced by population-based or scalarisation-based
-approximation, and their distance to the true front is not reported.
+capacities, backlogging, remanufacturing and stochastic demand \citep{Brahimi2017}. Its
+structural backbone is the zero-inventory-ordering (ZIO) property of
+\citet{WagnerWhitin1958}: an optimal plan orders only when the stock is exhausted, and then
+exactly the demand of an integer number of periods. With minimum order quantities the
+property no longer holds in its classical form, and exact algorithms instead decompose
+the horizon into sub-problems whose optimal solutions have an explicit structure
+\citep{OkhrinRichter2011EJOR,OkhrinRichter2011IJPE}. Multiobjective variants are fewer.
+\citet{Gutierrez2004} consider a single-item problem in which every demand scenario defines
+a cost objective and enumerate Pareto-optimal plans by multicriteria dynamic programming
+and branch and bound; plans restricted to the ZIO structure serve there as an
+approximation of the efficient set, and the computational study covers up to five periods
+and five scenarios. The models of Kania and co-authors add service and turnover objectives
+and safety instruments to the cost objective \citep{Kania2021ICCL,Kania2022CIE}, and DESMILS
+extends the approach to many items by solving the single-item problem for a few
+representative items only \citep{Kania2024DESMILS}. These works concentrate on modelling
+and on the interactive process, and the sets presented to the decision maker are not
+certified to be complete or Pareto optimal. Our order-event theorem (\cref{thm:event}) can
+be read as the multiobjective counterpart of the ZIO property for this class of models: it
+characterises the order levels of \emph{every} Pareto-optimal plan exactly, including the
+exceptions caused by minimum order quantities, case packs and the positivity of stock,
+rather than restricting the search to a structured subset.
 
+\paragraph{Exact multiobjective discrete optimisation}
 Exact methods for multiobjective combinatorial problems are surveyed by
-\citet{Ehrgott2005}. Two families are relevant here. Scalarisation methods such as the
-$\varepsilon$-constraint method \citep{Haimes1971} and its augmented variants
-\citep{Mavrotas2009} solve a sequence of single-objective mixed-integer programmes. They
-are generic but require one solve per front point and become slow when the front is
-large. Labelling algorithms for the multiobjective shortest path problem, from the early
-work of \citet{Hansen1980} and \citet{Martins1984} to the biobjective and multiobjective
-Dijkstra algorithms of \citet{SedenoNoda2019} and \citet{Maristany2021} and the
-label-correcting method of \citet{Kergosien2022}, compute complete sets of efficient
-paths by propagating non-dominated labels. They are efficient when the problem has a
-graph structure with additive costs, which a lot-sizing model does not obviously have:
-the turnover objective is a sum of reciprocals of average stock, and the service-level
-objective depends on the safety parameters rather than on the plan.
+\citet{Ehrgott2005}. Three families are relevant. Scalarisation methods solve a sequence of
+single-objective integer programmes: the $\varepsilon$-constraint method
+\citep{Haimes1971}, its augmented variants \citep{Mavrotas2009} and the generic enumeration
+algorithms for any number of objectives of \citet{KirlikSayin2014} and
+\citet{TambyVanderpooten2021}. They are general but require at least one solve per
+non-dominated point and become slow when the front is large, which is what our
+mixed-integer baseline shows. Multicriteria dynamic programming extends the recursive
+equations of dynamic programming to vector-valued criteria \citep{VillarrealKarwan1982,
+Carraway1990}; \citet{Bergman2022} cast problems with a recursive formulation as network
+models, so that the Pareto frontier is the set of non-dominated paths of a layered network,
+and show that operations which shrink the network while preserving the non-dominated
+paths yield large speed-ups. Labelling algorithms for the multiobjective shortest path
+problem, from \citet{Hansen1980} and \citet{Martins1984} to the biobjective and
+multiobjective Dijkstra algorithms of \citet{SedenoNoda2019} and \citet{Maristany2021} and
+the label-correcting method of \citet{Kergosien2022}, solve the resulting path problems.
+Our inner problem is an instance of this network view (\cref{app:inner}); what makes it
+tractable at the scale reported here are problem-specific results that a generic
+construction cannot exploit: the order-event characterisation, which replaces quantity
+branching by period branching, the exact memoization and dominance between requirement
+classes, and the vertex theorem, which turns a continuous outer domain into a finite one.
 
+\paragraph{Approximate methods}
 Metaheuristics, in particular NSGA-III \citep{DebJain2014}, are the default tool for
 many-objective problems in applied work, and implementations such as pymoo
 \citep{BlankDeb2020} make them easy to use. Their weakness is the absence of any

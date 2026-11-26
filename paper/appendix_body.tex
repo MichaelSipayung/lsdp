@@ -354,6 +354,19 @@ $X^0_{\tau\tau'}(x')=\max\{\lceil N_{\tau\tau'}(x')\rceil_r,\;x'+\moq\}$.
   to the order events.
 \end{proof}
 
+\begin{remark}[Relation to the zero-inventory-ordering property]
+  For a single cost objective, the property of \citet{WagnerWhitin1958} states that some
+  optimal plan orders only when the stock is exhausted and then exactly the demand of a
+  number of periods. \Cref{thm:event} is stronger in one respect and weaker in another. It
+  holds for \emph{every} Pareto-optimal plan of a multiobjective problem, not for some
+  optimal plan of a single-objective one, so it can be used to prune without losing points
+  of the front. On the other hand, the level is the covering level of the requirements, not
+  of the demand, and it is modified by the minimum order quantity, by the case pack and by
+  the positivity condition of the next order period. Without these modifications the
+  restriction would not be exact, which is why ZIO-restricted plans serve only as an
+  approximation in earlier multiobjective work \citep{Gutierrez2004}.
+\end{remark}
+
 \begin{remark}
   The exceptional levels with $i\ge1$ arise because moving $r$ units to the next order lowers
   the average stock in that period by $r/2$, which matters only when the stock there is close
