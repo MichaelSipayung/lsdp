@@ -1,0 +1,98 @@
+(conand) luis@luis-1701:~/riset/lsdp/paper$ cd ..
+(conand) luis@luis-1701:~/riset/lsdp$ export BIN=./build/lsdp
+mv suite/E4 suite/E4_old && mv suite/E3 suite/E3_old
+bash run_suite.sh E4          # sekitar 15 menit
+bash run_suite.sh E3          # sekitar 1,5 jam (termasuk front penuh T=96)
+for sku in 1 2; do for T in 16 24 32 40 48; do
+  f=suite/E5/dpnoito_sku${sku}_T${T}
+  $BIN front --sku $sku --T $T --seed 1 --SS 8 --SOT 0.3 --noito 1 --threads 1 --out $f.csv > $f.log
+done; done                    # hanya bagian DP dari E5a, beberapa detik; MILP tidak perlu diulang
+python3 paper/make_figures.py --suite suite --out paper
+cd paper && pdflatex main && bibtex main && pdflatex main && pdflatex main
+E4 seed 1 done
+E4 seed 2 done
+E4 seed 3 done
+E4 seed 4 done
+E4 seed 5 done
+summary written to suite/summary.txt
+E3 single-DP sku1 T=12 seed1: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=12 seed2: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=12 seed3: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=24 seed1: time: grouping 0.000s  inner DPs 0.006s  final filter 0.000s  TOTAL 0.006s
+E3 single-DP sku1 T=24 seed2: time: grouping 0.000s  inner DPs 0.006s  final filter 0.000s  TOTAL 0.006s
+E3 single-DP sku1 T=24 seed3: time: grouping 0.000s  inner DPs 0.006s  final filter 0.000s  TOTAL 0.006s
+E3 single-DP sku1 T=36 seed1: time: grouping 0.000s  inner DPs 0.053s  final filter 0.000s  TOTAL 0.054s
+E3 single-DP sku1 T=36 seed2: time: grouping 0.000s  inner DPs 0.052s  final filter 0.000s  TOTAL 0.052s
+E3 single-DP sku1 T=36 seed3: time: grouping 0.000s  inner DPs 0.056s  final filter 0.000s  TOTAL 0.056s
+E3 single-DP sku1 T=48 seed1: time: grouping 0.000s  inner DPs 0.259s  final filter 0.002s  TOTAL 0.261s
+E3 single-DP sku1 T=48 seed2: time: grouping 0.000s  inner DPs 0.239s  final filter 0.001s  TOTAL 0.240s
+E3 single-DP sku1 T=48 seed3: time: grouping 0.000s  inner DPs 0.278s  final filter 0.002s  TOTAL 0.280s
+E3 single-DP sku1 T=60 seed1: time: grouping 0.001s  inner DPs 1.162s  final filter 0.005s  TOTAL 1.168s
+E3 single-DP sku1 T=60 seed2: time: grouping 0.001s  inner DPs 0.890s  final filter 0.005s  TOTAL 0.895s
+E3 single-DP sku1 T=60 seed3: time: grouping 0.001s  inner DPs 0.926s  final filter 0.004s  TOTAL 0.931s
+E3 single-DP sku1 T=72 seed1: time: grouping 0.001s  inner DPs 3.721s  final filter 0.011s  TOTAL 3.734s
+E3 single-DP sku1 T=72 seed2: time: grouping 0.001s  inner DPs 2.608s  final filter 0.010s  TOTAL 2.619s
+E3 single-DP sku1 T=72 seed3: time: grouping 0.001s  inner DPs 2.690s  final filter 0.011s  TOTAL 2.701s
+E3 single-DP sku1 T=84 seed1: time: grouping 0.001s  inner DPs 8.757s  final filter 0.025s  TOTAL 8.783s
+E3 single-DP sku1 T=84 seed2: time: grouping 0.001s  inner DPs 7.216s  final filter 0.023s  TOTAL 7.240s
+E3 single-DP sku1 T=84 seed3: time: grouping 0.001s  inner DPs 8.193s  final filter 0.029s  TOTAL 8.223s
+E3 single-DP sku1 T=96 seed1: time: grouping 0.002s  inner DPs 19.715s  final filter 0.053s  TOTAL 19.769s
+E3 single-DP sku1 T=96 seed2: time: grouping 0.002s  inner DPs 14.853s  final filter 0.043s  TOTAL 14.898s
+E3 single-DP sku1 T=96 seed3: time: grouping 0.001s  inner DPs 17.669s  final filter 0.059s  TOTAL 17.730s
+E3 single-DP sku2 T=12 seed1: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=12 seed2: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=12 seed3: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=24 seed1: time: grouping 0.000s  inner DPs 0.013s  final filter 0.000s  TOTAL 0.013s
+E3 single-DP sku2 T=24 seed2: time: grouping 0.000s  inner DPs 0.016s  final filter 0.000s  TOTAL 0.016s
+E3 single-DP sku2 T=24 seed3: time: grouping 0.000s  inner DPs 0.012s  final filter 0.000s  TOTAL 0.012s
+E3 single-DP sku2 T=36 seed1: time: grouping 0.000s  inner DPs 0.149s  final filter 0.001s  TOTAL 0.150s
+E3 single-DP sku2 T=36 seed2: time: grouping 0.000s  inner DPs 0.113s  final filter 0.001s  TOTAL 0.113s
+E3 single-DP sku2 T=36 seed3: time: grouping 0.000s  inner DPs 0.138s  final filter 0.001s  TOTAL 0.139s
+E3 single-DP sku2 T=48 seed1: time: grouping 0.000s  inner DPs 1.118s  final filter 0.004s  TOTAL 1.122s
+E3 single-DP sku2 T=48 seed2: time: grouping 0.000s  inner DPs 0.766s  final filter 0.002s  TOTAL 0.768s
+E3 single-DP sku2 T=48 seed3: time: grouping 0.000s  inner DPs 0.983s  final filter 0.003s  TOTAL 0.986s
+E3 single-DP sku2 T=60 seed1: time: grouping 0.000s  inner DPs 5.807s  final filter 0.011s  TOTAL 5.818s
+E3 single-DP sku2 T=60 seed2: time: grouping 0.000s  inner DPs 3.405s  final filter 0.008s  TOTAL 3.413s
+E3 single-DP sku2 T=60 seed3: time: grouping 0.000s  inner DPs 3.828s  final filter 0.010s  TOTAL 3.838s
+E3 single-DP sku2 T=72 seed1: time: grouping 0.000s  inner DPs 18.288s  final filter 0.030s  TOTAL 18.318s
+E3 single-DP sku2 T=72 seed2: time: grouping 0.000s  inner DPs 10.028s  final filter 0.020s  TOTAL 10.049s
+E3 single-DP sku2 T=72 seed3: time: grouping 0.000s  inner DPs 11.735s  final filter 0.026s  TOTAL 11.762s
+E3 single-DP sku2 T=84 seed1: time: grouping 0.000s  inner DPs 43.208s  final filter 0.059s  TOTAL 43.267s
+E3 single-DP sku2 T=84 seed2: time: grouping 0.000s  inner DPs 31.349s  final filter 0.043s  TOTAL 31.392s
+E3 single-DP sku2 T=84 seed3: time: grouping 0.000s  inner DPs 36.834s  final filter 0.064s  TOTAL 36.898s
+E3 single-DP sku2 T=96 seed1: time: grouping 0.000s  inner DPs 98.022s  final filter 0.113s  TOTAL 98.135s
+E3 single-DP sku2 T=96 seed2: time: grouping 0.000s  inner DPs 64.520s  final filter 0.078s  TOTAL 64.598s
+E3 single-DP sku2 T=96 seed3: time: grouping 0.000s  inner DPs 75.805s  final filter 0.130s  TOTAL 75.935s
+
+
+
+^C
+wrote paper/tables/tab_e2.tex
+wrote fig_front.pdf with 52715 points
+wrote paper/tables/tab_e3fit.tex
+wrote paper/tables/e3_full.tex
+E4 ordering-cost invariance:
+  seed 1: signatures 50=200 True, 200=800 True | raw plans 50=200 True, 200=800 True | |50-200| 0, |200-800| 0
+  seed 2: signatures 50=200 True, 200=800 True | raw plans 50=200 True, 200=800 True | |50-200| 0, |200-800| 0
+  seed 3: signatures 50=200 True, 200=800 True | raw plans 50=200 True, 200=800 True | |50-200| 0, |200-800| 0
+  seed 4: signatures 50=200 True, 200=800 True | raw plans 50=200 True, 200=800 True | |50-200| 0, |200-800| 0
+  seed 5: signatures 50=200 True, 200=800 True | raw plans 50=200 True, 200=800 False | |50-200| 0, |200-800| 0
+wrote paper/tables/tab_e4.tex
+wrote paper/tables/e4_inv.tex
+wrote paper/tables/tab_e5a.tex
+wrote paper/tables/tab_e5b.tex
+wrote paper/tables/software.tex
+
+software: {'cpu': '12th Gen Intel(R) Core(TM) i5-1235U', 'os': 'Ubuntu 26.04.1 LTS', 'gcc': 'g++ (Ubuntu 15.2.0-16ubuntu1) 15.2.0', 'cmake': '4.2.3', 'ninja': '1.13.2', 'python': '3.14.4', 'numpy': '2.5.5', 'matplotlib': '3.11.2', 'scipy': '1.18.1', 'pymoo': '0.6.2', 'highs': 'HiGHS (bundled with SciPy)'}
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.5) (preloaded format=pdflatex.fmt)
+ restricted \write18 enabled.
+entering extended mode
+(main.tex
+LaTeX2e <2026-11-01>
+L3 programming layer <2026-09-09>
+(/home/luis/.miktex/texmfs/install/tex/latex/elsarticle/elsarticle.cls
+Document Class: elsarticle 2026/01/09, 3.5: Elsevier Ltd
+Output written on main.pdf (25 pages, 755131 bytes).
+Transcript written on main.log.
+pdflatex: major issue: So far, you have not checked for MiKTeX updates.
+(conand) luis@luis-1701:~/riset/lsdp/paper$ 

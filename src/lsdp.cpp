@@ -904,7 +904,7 @@ int run_front(int sku, int T, unsigned seed, double dSS, double dSOT, const stri
            dSS, dSOT, ncomb, nclasses, G.size());
   printf("labels generated (total): %zu   candidate points: %zu   Pareto front: %zu\n",
          totlab, ncand, front.size());
-  printf("time: grouping %.3fs  inner DPs %.3fs  final filter %.3fs  TOTAL %.3fs\n",
+  printf("time: grouping %.6fs  inner DPs %.6fs  final filter %.6fs  TOTAL %.6fs\n",
          sec(t0, t1), sec(t1, t2), sec(t2, t3), sec(t0, t3));
   FILE* f = fopen(out.c_str(), "w");
   if (!f) { perror("fopen"); return 1; }

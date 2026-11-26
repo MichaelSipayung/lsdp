@@ -109,6 +109,17 @@ for sku in (1, 2):
                     f"{ms([d['keys'] for d in L], '{:.0f}')} & {ms([d['solvedcls'] for d in L], '{:.0f}')} & "
                     f"{thousands([d['front'] for d in L])} & "
                     f"{ms([d['time'] for d in L])} \\\\")
+# speed-up against the independent reference run (same machine and threads)
+sp = []
+for f in glob.glob(f"{a.suite}/E2/sku*_s*_*.log"):
+    g = f"{a.suite}/ref/E2/" + os.path.basename(f)
+    t1, t0 = log_stats(f)["time"], log_stats(g)["time"]
+    if t1 == t1 and t0 == t0 and t1 > 0:
+        sp.append(t0 / t1)
+if sp:
+    write("e2_macros.tex", f"\\newcommand{{\\EtwoSpeedLo}}{{{min(sp):.1f}}}\n"
+          f"\\newcommand{{\\EtwoSpeedHi}}{{{max(sp):.1f}}}\n"
+          f"\\newcommand{{\\EtwoSpeedMed}}{{{np.median(sp):.1f}}}\n")
 write("tab_e2.tex", "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule\n"
       "Item & Outer domain & $n$ & Candidates & Classes $\\kappa$ & Solved & Front size & Time (s) \\\\\n\\midrule\n"
       + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
@@ -235,9 +246,24 @@ for sku in (1, 2):
         if dp == dp:
             pts[sku].append((T, dp, wall))
             ratio = f"{wall/dp:,.0f}".replace(",", "\\,") if wall == wall and dp > 0 else "--"
-            rows.append(f"SKU {sku} & {T} & {dp*1e3:.1f} & "
+            rows.append(f"SKU {sku} & {T} & {dp*1e3:.3f} & "
                         f"{('%.1f' % wall) if wall == wall else 'timeout'} & "
                         f"{('%.0f' % nsol) if nsol == nsol else '--'} & {ratio} & {same} \\\\")
+# macros for the text: DP time and ratio at the largest horizon
+def sci(x):
+    e = int(np.floor(np.log10(x)))
+    return f"{x / 10**e:.1f}\\times10^{{{e}}}"
+r48 = [(sku, T, dp, ml) for sku in (1, 2) for (T, dp, ml) in pts[sku] if T == 48 and ml == ml and dp > 0]
+if r48:
+    ratios = [ml / dp for (_, _, dp, ml) in r48]
+    write("e5a_macros.tex",
+          f"\\newcommand{{\\EfiveDPone}}{{{r48[0][2]*1e3:.1f}}}\n"
+          f"\\newcommand{{\\EfiveDPtwo}}{{{r48[-1][2]*1e3:.1f}}}\n"
+          f"\\newcommand{{\\EfiveMILPone}}{{{r48[0][3]:,.0f}}}\n".replace(",", "\\,") +
+          f"\\newcommand{{\\EfiveMILPtwo}}{{{r48[-1][3]:,.0f}}}\n".replace(",", "\\,") +
+          f"\\newcommand{{\\EfiveRatioLo}}{{{sci(min(ratios))}}}\n"
+          f"\\newcommand{{\\EfiveRatioHi}}{{{sci(max(ratios))}}}\n"
+          f"\\newcommand{{\\EfiveOrders}}{{{['zero','one','two','three','four','five','six','seven','eight','nine'][int(np.floor(np.log10(min(ratios))))]}}}\n")
 write("tab_e5a.tex", "\\begin{tabular}{@{}lrrrrrl@{}}\n\\toprule\n"
       "Item & $T$ & DP (ms) & MILP (s) & MILP solves & Ratio & Identical front (points) \\\\\n\\midrule\n"
       + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
@@ -325,6 +351,7 @@ for m in sorted(glob.glob(os.path.join(a.bench, "*", "manifest.csv"))):
     man += list(csv.DictReader(open(m)))
 if man:
     rows, tim, chk, allst = [], {}, [0, 0], []
+    SHOW_TO = any("TIMEOUT" in read(f) for f in glob.glob(f"{a.suite}/E6/*/*.log") if not f.endswith("_ref.log"))
     for src in ("m5", "uci"):
         for c in CLS:
             R = [r for r in man if r["source"] == src and r["cls"] == c]
@@ -345,7 +372,8 @@ if man:
             done = [d for d in st_ if d["time"] == d["time"]]
             nto = sum(1 for d in st_ if d["timeout"] == d["timeout"])
             tim[(src, c)] = [d["time"] for d in done]
-            rows.append(f"{'M5' if src == 'm5' else 'Online Retail II'} & {c} & {len(R)} & {len(done)} & {nto} & "
+            rows.append(f"{'M5' if src == 'm5' else 'Online Retail II'} & {c} & {len(R)} & {len(done)} & " +
+                        (f"{nto} & " if SHOW_TO else "") +
                         f"{q([float(r['mu']) for r in R])} & {q([d['mur'] for d in st_], '{:.2f}')} & "
                         f"{q([d['keys'] for d in done], '{:.0f}')} & {q([d['front'] for d in done], '{:.0f}')} & "
                         f"{q([d['time'] for d in done], '{:.2f}')} & "
@@ -357,8 +385,9 @@ if man:
                             round(float(r["ITO"]), 8)) for r in csv.DictReader(open(f))}
             chk[1] += 1
             chk[0] += O(ref) == O(base)
-    write("tab_e6.tex", "\\begin{tabular}{@{}llrrrrrrrrr@{}}\n\\toprule\n"
-          "Source & Demand class & Inst. & Solved & At limit & $\\mu$ & $\\mu/r$ & Classes $\\kappa$ & Front size & "
+    write("tab_e6.tex", "\\begin{tabular}{@{}ll" + ("r" * (10 if SHOW_TO else 9)) + "@{}}\n\\toprule\n"
+          "Source & Demand class & Inst. & Solved & " + ("At limit & " if SHOW_TO else "") +
+          "$\\mu$ & $\\mu/r$ & Classes $\\kappa$ & Front size & "
           "Time (s) & Max (s) \\\\\n\\midrule\n" + "\n".join(rows) + "\n\\bottomrule\n\\end{tabular}\n")
     alltimes = [t for v in tim.values() for t in v]
     write("e6_macros.tex",
@@ -389,6 +418,8 @@ if man:
     ax[0].axvline(1.32, color="k", lw=0.6, ls="--")
     ax[0].axhline(0.49, color="k", lw=0.6, ls="--")
     ax[0].set_xscale("log")
+    ax[0].set_yscale("log")
+    ax[0].yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:g}"))
     ax[0].xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
     ax[0].xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
     ax[0].set_xlabel("ADI (weeks)")

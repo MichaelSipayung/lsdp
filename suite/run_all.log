@@ -1,0 +1,116 @@
+[14:57:40] E1
+verify: 100 / 100 instances identical (period DP and order-event DP vs brute force with 3x bound)
+20
+summary written to suite/summary.txt
+[14:58:15] E2
+E2 sku1 seed1 grid: time: grouping 0.003s  inner DPs 0.569s  final filter 0.723s  TOTAL 1.294s
+E2 sku1 seed1 continuous: time: grouping 0.003s  inner DPs 0.761s  final filter 0.936s  TOTAL 1.700s
+E2 sku1 seed2 grid: time: grouping 0.002s  inner DPs 0.393s  final filter 0.314s  TOTAL 0.709s
+E2 sku1 seed2 continuous: time: grouping 0.003s  inner DPs 0.620s  final filter 0.591s  TOTAL 1.215s
+E2 sku1 seed3 grid: time: grouping 0.002s  inner DPs 0.480s  final filter 0.465s  TOTAL 0.946s
+E2 sku1 seed3 continuous: time: grouping 0.003s  inner DPs 0.645s  final filter 0.760s  TOTAL 1.408s
+E2 sku1 seed4 grid: time: grouping 0.003s  inner DPs 0.565s  final filter 0.615s  TOTAL 1.183s
+E2 sku1 seed4 continuous: time: grouping 0.003s  inner DPs 0.909s  final filter 1.068s  TOTAL 1.981s
+E2 sku1 seed5 grid: time: grouping 0.002s  inner DPs 0.395s  final filter 0.422s  TOTAL 0.819s
+E2 sku1 seed5 continuous: time: grouping 0.002s  inner DPs 0.553s  final filter 0.592s  TOTAL 1.147s
+E2 sku1 seed6 grid: time: grouping 0.003s  inner DPs 0.645s  final filter 0.666s  TOTAL 1.314s
+E2 sku1 seed6 continuous: time: grouping 0.003s  inner DPs 0.881s  final filter 1.034s  TOTAL 1.918s
+E2 sku1 seed7 grid: time: grouping 0.002s  inner DPs 0.402s  final filter 0.329s  TOTAL 0.734s
+E2 sku1 seed7 continuous: time: grouping 0.003s  inner DPs 0.685s  final filter 0.767s  TOTAL 1.455s
+E2 sku1 seed8 grid: time: grouping 0.003s  inner DPs 0.482s  final filter 0.462s  TOTAL 0.947s
+E2 sku1 seed8 continuous: time: grouping 0.003s  inner DPs 0.666s  final filter 0.630s  TOTAL 1.299s
+E2 sku1 seed9 grid: time: grouping 0.002s  inner DPs 0.339s  final filter 0.263s  TOTAL 0.605s
+E2 sku1 seed9 continuous: time: grouping 0.004s  inner DPs 0.603s  final filter 0.511s  TOTAL 1.118s
+E2 sku1 seed10 grid: time: grouping 0.003s  inner DPs 0.403s  final filter 0.434s  TOTAL 0.840s
+E2 sku1 seed10 continuous: time: grouping 0.003s  inner DPs 0.706s  final filter 0.848s  TOTAL 1.558s
+E2 sku2 seed1 grid: time: grouping 0.000s  inner DPs 0.583s  final filter 0.178s  TOTAL 0.762s
+E2 sku2 seed1 continuous: time: grouping 0.006s  inner DPs 1.978s  final filter 1.140s  TOTAL 3.124s
+E2 sku2 seed2 grid: time: grouping 0.001s  inner DPs 0.450s  final filter 0.132s  TOTAL 0.583s
+E2 sku2 seed2 continuous: time: grouping 0.008s  inner DPs 1.715s  final filter 0.766s  TOTAL 2.489s
+E2 sku2 seed3 grid: time: grouping 0.001s  inner DPs 0.609s  final filter 0.165s  TOTAL 0.774s
+E2 sku2 seed3 continuous: time: grouping 0.007s  inner DPs 1.907s  final filter 0.967s  TOTAL 2.881s
+E2 sku2 seed4 grid: time: grouping 0.000s  inner DPs 0.665s  final filter 0.218s  TOTAL 0.883s
+E2 sku2 seed4 continuous: time: grouping 0.006s  inner DPs 1.957s  final filter 1.152s  TOTAL 3.115s
+E2 sku2 seed5 grid: time: grouping 0.001s  inner DPs 0.488s  final filter 0.133s  TOTAL 0.622s
+E2 sku2 seed5 continuous: time: grouping 0.003s  inner DPs 1.072s  final filter 0.685s  TOTAL 1.759s
+E2 sku2 seed6 grid: time: grouping 0.001s  inner DPs 0.549s  final filter 0.234s  TOTAL 0.785s
+E2 sku2 seed6 continuous: time: grouping 0.008s  inner DPs 2.908s  final filter 2.196s  TOTAL 5.113s
+E2 sku2 seed7 grid: time: grouping 0.001s  inner DPs 0.463s  final filter 0.176s  TOTAL 0.639s
+E2 sku2 seed7 continuous: time: grouping 0.009s  inner DPs 1.643s  final filter 1.392s  TOTAL 3.044s
+E2 sku2 seed8 grid: time: grouping 0.001s  inner DPs 0.571s  final filter 0.203s  TOTAL 0.775s
+E2 sku2 seed8 continuous: time: grouping 0.005s  inner DPs 2.540s  final filter 1.570s  TOTAL 4.115s
+E2 sku2 seed9 grid: time: grouping 0.001s  inner DPs 0.421s  final filter 0.128s  TOTAL 0.550s
+E2 sku2 seed9 continuous: time: grouping 0.004s  inner DPs 1.448s  final filter 0.875s  TOTAL 2.327s
+E2 sku2 seed10 grid: time: grouping 0.001s  inner DPs 0.582s  final filter 0.223s  TOTAL 0.806s
+E2 sku2 seed10 continuous: time: grouping 0.006s  inner DPs 2.026s  final filter 1.657s  TOTAL 3.689s
+summary written to suite/summary.txt
+[14:59:30] E4
+E4 seed 1 done
+E4 seed 2 done
+E4 seed 3 done
+E4 seed 4 done
+E4 seed 5 done
+summary written to suite/summary.txt
+[15:02:01] E3
+E3 single-DP sku1 T=12 seed1: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=12 seed2: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=12 seed3: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku1 T=24 seed1: time: grouping 0.000s  inner DPs 0.001s  final filter 0.000s  TOTAL 0.001s
+E3 single-DP sku1 T=24 seed2: time: grouping 0.000s  inner DPs 0.001s  final filter 0.000s  TOTAL 0.001s
+E3 single-DP sku1 T=24 seed3: time: grouping 0.000s  inner DPs 0.001s  final filter 0.000s  TOTAL 0.001s
+E3 single-DP sku1 T=36 seed1: time: grouping 0.000s  inner DPs 0.006s  final filter 0.000s  TOTAL 0.006s
+E3 single-DP sku1 T=36 seed2: time: grouping 0.000s  inner DPs 0.008s  final filter 0.000s  TOTAL 0.008s
+E3 single-DP sku1 T=36 seed3: time: grouping 0.000s  inner DPs 0.010s  final filter 0.000s  TOTAL 0.010s
+E3 single-DP sku1 T=48 seed1: time: grouping 0.000s  inner DPs 0.047s  final filter 0.001s  TOTAL 0.048s
+E3 single-DP sku1 T=48 seed2: time: grouping 0.000s  inner DPs 0.040s  final filter 0.001s  TOTAL 0.042s
+E3 single-DP sku1 T=48 seed3: time: grouping 0.000s  inner DPs 0.042s  final filter 0.001s  TOTAL 0.044s
+E3 single-DP sku1 T=60 seed1: time: grouping 0.000s  inner DPs 0.172s  final filter 0.003s  TOTAL 0.176s
+E3 single-DP sku1 T=60 seed2: time: grouping 0.000s  inner DPs 0.163s  final filter 0.003s  TOTAL 0.167s
+E3 single-DP sku1 T=60 seed3: time: grouping 0.000s  inner DPs 0.173s  final filter 0.003s  TOTAL 0.176s
+E3 single-DP sku1 T=72 seed1: time: grouping 0.001s  inner DPs 0.576s  final filter 0.007s  TOTAL 0.583s
+E3 single-DP sku1 T=72 seed2: time: grouping 0.000s  inner DPs 0.478s  final filter 0.006s  TOTAL 0.484s
+E3 single-DP sku1 T=72 seed3: time: grouping 0.001s  inner DPs 0.453s  final filter 0.007s  TOTAL 0.460s
+E3 single-DP sku1 T=84 seed1: time: grouping 0.001s  inner DPs 1.402s  final filter 0.015s  TOTAL 1.417s
+E3 single-DP sku1 T=84 seed2: time: grouping 0.001s  inner DPs 1.347s  final filter 0.014s  TOTAL 1.362s
+E3 single-DP sku1 T=84 seed3: time: grouping 0.001s  inner DPs 1.296s  final filter 0.017s  TOTAL 1.314s
+E3 single-DP sku1 T=96 seed1: time: grouping 0.001s  inner DPs 3.221s  final filter 0.030s  TOTAL 3.252s
+E3 single-DP sku1 T=96 seed2: time: grouping 0.001s  inner DPs 2.816s  final filter 0.026s  TOTAL 2.842s
+E3 single-DP sku1 T=96 seed3: time: grouping 0.001s  inner DPs 2.897s  final filter 0.034s  TOTAL 2.932s
+E3 single-DP sku2 T=12 seed1: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=12 seed2: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=12 seed3: time: grouping 0.000s  inner DPs 0.000s  final filter 0.000s  TOTAL 0.000s
+E3 single-DP sku2 T=24 seed1: time: grouping 0.000s  inner DPs 0.002s  final filter 0.000s  TOTAL 0.002s
+E3 single-DP sku2 T=24 seed2: time: grouping 0.000s  inner DPs 0.003s  final filter 0.000s  TOTAL 0.003s
+E3 single-DP sku2 T=24 seed3: time: grouping 0.000s  inner DPs 0.003s  final filter 0.000s  TOTAL 0.003s
+E3 single-DP sku2 T=36 seed1: time: grouping 0.000s  inner DPs 0.024s  final filter 0.000s  TOTAL 0.025s
+E3 single-DP sku2 T=36 seed2: time: grouping 0.000s  inner DPs 0.027s  final filter 0.000s  TOTAL 0.028s
+E3 single-DP sku2 T=36 seed3: time: grouping 0.000s  inner DPs 0.034s  final filter 0.000s  TOTAL 0.034s
+E3 single-DP sku2 T=48 seed1: time: grouping 0.000s  inner DPs 0.207s  final filter 0.002s  TOTAL 0.209s
+E3 single-DP sku2 T=48 seed2: time: grouping 0.000s  inner DPs 0.148s  final filter 0.001s  TOTAL 0.150s
+E3 single-DP sku2 T=48 seed3: time: grouping 0.000s  inner DPs 0.206s  final filter 0.002s  TOTAL 0.208s
+E3 single-DP sku2 T=60 seed1: time: grouping 0.000s  inner DPs 1.124s  final filter 0.006s  TOTAL 1.130s
+E3 single-DP sku2 T=60 seed2: time: grouping 0.000s  inner DPs 0.643s  final filter 0.005s  TOTAL 0.648s
+E3 single-DP sku2 T=60 seed3: time: grouping 0.000s  inner DPs 0.680s  final filter 0.006s  TOTAL 0.686s
+E3 single-DP sku2 T=72 seed1: time: grouping 0.000s  inner DPs 3.508s  final filter 0.017s  TOTAL 3.525s
+E3 single-DP sku2 T=72 seed2: time: grouping 0.000s  inner DPs 2.067s  final filter 0.012s  TOTAL 2.078s
+E3 single-DP sku2 T=72 seed3: time: grouping 0.000s  inner DPs 2.139s  final filter 0.015s  TOTAL 2.154s
+E3 single-DP sku2 T=84 seed1: time: grouping 0.000s  inner DPs 8.410s  final filter 0.032s  TOTAL 8.442s
+E3 single-DP sku2 T=84 seed2: time: grouping 0.000s  inner DPs 6.555s  final filter 0.023s  TOTAL 6.578s
+E3 single-DP sku2 T=84 seed3: time: grouping 0.000s  inner DPs 7.273s  final filter 0.035s  TOTAL 7.309s
+E3 single-DP sku2 T=96 seed1: time: grouping 0.000s  inner DPs 18.555s  final filter 0.064s  TOTAL 18.619s
+E3 single-DP sku2 T=96 seed2: time: grouping 0.000s  inner DPs 15.124s  final filter 0.042s  TOTAL 15.166s
+E3 single-DP sku2 T=96 seed3: time: grouping 0.000s  inner DPs 14.594s  final filter 0.089s  TOTAL 14.684s
+E3 full sku1 T=96: time: grouping 0.028s  inner DPs 307.319s  final filter 204.403s  TOTAL 511.750s
+summary written to suite/summary.txt
+[15:12:41] E5a (DP part)
+[15:12:41] E6
+E6 runs finished
+solved: 700 instances, time limit reached: 0, reference checks: 30 solved / 0 at limit
+[15:26:26] reference runs (period-by-period programme, all classes, no pruning)
+[16:21:51] E5b comparison against the regenerated exact fronts
+E5b: exact points dominated by NSGA-III (sum, must be 0): 0
+[16:37:32] exactness: current programme vs independent reference
+suite/E2 vs suite/ref/E2: 40 identical fronts, 0 different
+suite/E4 vs suite/ref/E4: 45 identical fronts, 0 different
+suite/E6 reference checks: 30 identical fronts, 0 different
+[16:39:14] done
