@@ -1,0 +1,12 @@
+instance SKU1 T=12 seed=1: 30 classes, exact front 235 points (0.001 s)
+environment: 1952 complete plans enumerated, 235 non-dominated, 235 of them on the exact front (exact front 235) => OK
+instance SKU1 T=12 seed=2: 26 classes, exact front 79 points (0.001 s)
+environment: 1664 complete plans enumerated, 79 non-dominated, 79 of them on the exact front (exact front 79) => OK
+instance SKU1 T=12 seed=3: 27 classes, exact front 108 points (0.001 s)
+environment: 1920 complete plans enumerated, 108 non-dominated, 108 of them on the exact front (exact front 108) => OK
+instance SKU2 T=12 seed=1: 93 classes, exact front 474 points (0.002 s)
+environment: 31036 complete plans enumerated, 474 non-dominated, 474 of them on the exact front (exact front 474) => OK
+instance SKU2 T=12 seed=2: 58 classes, exact front 202 points (0.001 s)
+environment: 8992 complete plans enumerated, 202 non-dominated, 202 of them on the exact front (exact front 202) => OK
+instance SKU2 T=12 seed=3: 100 classes, exact front 190 points (0.001 s)
+environment: 26204 complete plans enumerated, 190 non-dominated, 190 of them on the exact front (exact front 190) => OK

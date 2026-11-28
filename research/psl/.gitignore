@@ -1,0 +1,16 @@
+pool_*.txt
+*.cls
+*.ev
+eval_*.txt
+racy/
+old_v0/
+old_v1/
+psl
+psl_dbg
+psl_rg
+psl_stage1
+paper2/*.aux
+paper2/*.log
+paper2/*.blg
+paper2/*.out
+paper2/*.spl

@@ -1,0 +1,14 @@
+\begin{tabular}{lrrrrrr}
+\toprule
+Action space & Iter. & Train time (h) & Median & Mean & P90 & On front (\%)\\
+\midrule
+\multicolumn{7}{l}{\emph{Held-out synthetic, greedy decoding}}\\
+Order events & 5000 & 2.27 & 0.0215 & 0.0424 & 0.0960 & 11.7\\
+Per-period quantities & 5000 & 3.26 & 0.0262 & 0.0585 & 0.1265 & 23.4\\
+Per-period quantities (equal time) & 3000 & 1.98 & 0.0352 & 0.0597 & 0.1337 & 29.2\\
+\multicolumn{7}{l}{\emph{Real (E6), greedy decoding}}\\
+Order events & 5000 & 2.27 & 0.0318 & 0.6693 & 0.2190 & 9.5\\
+Per-period quantities & 5000 & 3.26 & 0.0353 & 0.7182 & 0.2836 & 25.2\\
+Per-period quantities (equal time) & 3000 & 1.98 & 0.0457 & 0.7565 & 0.2417 & 27.5\\
+\bottomrule
+\end{tabular}

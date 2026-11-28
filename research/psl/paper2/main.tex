@@ -1,0 +1,390 @@
+% Paper 2: preference-conditioned policy learning for the four-objective lot-sizing model,
+% trained by reinforcement learning and evaluated against exact Pareto fronts.
+% Target: Computers & Operations Research (subscription route, no publication fee);
+% alternative: International Journal of Production Economics.
+% Build: python3 make_tables.py --run ../ --out .   then   pdflatex main && bibtex main && pdflatex main && pdflatex main
+\documentclass[preprint,12pt,authoryear]{elsarticle}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage{adjustbox}
+\usepackage{graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,noabbrev]{cleveref}
+\newtheorem{proposition}{Proposition}
+\newtheorem{definition}{Definition}
+\newcommand{\tabin}[1]{\IfFileExists{tables/#1}{\begin{adjustbox}{max width=\linewidth}\input{tables/#1}\end{adjustbox}}{\fbox{run make\_tables.py: \detokenize{#1}}}}
+\newcommand{\figin}[2]{\IfFileExists{figures/#2}{\includegraphics[width=#1]{figures/#2}}{\fbox{run make\_tables.py: \detokenize{#2}}}}
+\IfFileExists{tables/results_macros.tex}{\input{tables/results_macros.tex}}{\newcommand{\Rv}[1]{??}}
+\newcommand{\POC}{\mathrm{POC}}\newcommand{\HC}{\mathrm{HC}}\newcommand{\CSL}{\mathrm{CSL}}\newcommand{\ITO}{\mathrm{ITO}}
+
+\journal{Computers \& Operations Research}
+
+\begin{document}
+\begin{frontmatter}
+\title{Learning to plan lot sizes for any trade-off: a preference-conditioned policy on a provably
+sufficient action space, measured against exact Pareto fronts}
+
+\author[unimed]{Michael Sipayung}
+\address[unimed]{Department of Physics, Universitas Negeri Medan, Medan, Indonesia}
+
+\begin{abstract}
+Decision makers in lot sizing weigh ordering cost, holding cost, service level and inventory
+turnover against one another, and their preferred trade-off changes from item to item and from
+week to week. We train a single neural policy that, given an instance and a preference vector,
+constructs a lot-sizing plan for the four-objective model of Kania et al.\ in milliseconds. Two
+features distinguish the approach from existing learning-based methods for inventory and for
+multiobjective combinatorial optimisation. First, the policy acts on order events rather than on
+per-period quantities: by an order-event theorem for this model, the event action space contains
+every Pareto-optimal plan while being much smaller than the space of quantity sequences. Second,
+every result is measured against the exact Pareto front, computed by the label-setting dynamic
+programme of our companion paper, so that the reported gaps are true optimality gaps rather than
+gaps to a heuristic reference. On \Rv{SynN} held-out synthetic instances the policy attains a
+median Tchebycheff regret of \Rv{SynMedDec} (\Rv{SynMedBest} with best-of-17 sampling) against
+\Rv{SynMedGreedy} for a greedy constructive heuristic, and on \Rv{RealN} instances built from the
+M5 and Online Retail II data, which it never saw in training, \Rv{RealMedDec}
+(\Rv{RealMedBest}) against \Rv{RealMedGreedy}. Learning on order events is \Rv{AblSpeed} times
+faster to train than learning on per-period quantities and gives lower median and 90th-percentile
+regret at equal iterations and at equal training time, while the quantity formulation lands
+exactly on the front more often, mainly at extreme preferences.
+We also report where the exact method remains preferable: for small real instances the full
+front is computed faster than the policy answers a single preference with sampling.
+\end{abstract}
+
+\begin{keyword}
+Inventory \sep lot sizing \sep multiobjective optimisation \sep Pareto set learning \sep
+reinforcement learning \sep exact benchmark
+\end{keyword}
+\end{frontmatter}
+
+% =====================================================================================
+\section{Introduction}\label{sec:intro}
+
+Lot-sizing decisions in practice are rarely made against a single cost. Kania and co-authors
+formulate the single-item problem with safety stock and safety order time as a four-objective
+model, in which purchasing and ordering cost, holding cost, cycle service level and inventory
+turnover are traded off by a decision maker who explores the Pareto front interactively
+\citep{Kania2021ICCL,Kania2022CIE,Kania2024DESMILS}. Interactive exploration, however, requires
+that a plan matching the current preference can be produced quickly, again and again, for every
+item that the decision maker is responsible for. Our companion paper makes the exact Pareto front
+of this model computable by a label-setting dynamic programme; the front is exact, but its size
+grows to tens or hundreds of thousands of points and its computation, while fast for most real
+series, takes minutes on the hardest instances.
+
+This paper asks whether a single learned policy can answer any preference directly, and how far
+its answers are from optimal. The question belongs to Pareto set learning (PSL), in which one
+preference-conditioned model approximates the whole Pareto set \citep{Lin2022PSL}. PSL has been
+developed mainly for routing and knapsack problems, where exact Pareto fronts are out of reach and
+quality is therefore reported relative to heuristic references such as weighted-sum LKH or
+hypervolume of an approximate front \citep{Chen2023NHDE,Lu2024GAPL}. In inventory control, deep
+reinforcement learning has been shown to match or beat strong heuristics in single-objective
+settings \citep{Gijsbrechts2022MSOM,Dehaybe2024,vanHezewijk2023,vanHezewijk2025}, and the few
+multiobjective studies approximate fronts with evolutionary search over policy parameters, again
+without an exact reference \citep{Kotecha2025MORSE,Rachman2025}. \citet{Boute2022Roadmap} identify
+the use of structural policy insights from inventory theory as one of the main open avenues for
+deep reinforcement learning in this field.
+
+Our setting allows both gaps to be closed at once. The exact front gives every learned plan a true
+regret, and a structural result for the model, the order-event theorem of the companion paper,
+gives the policy an action space that is provably sufficient. Our contributions are:
+\begin{enumerate}
+\item An order-event Markov decision process for the four-objective model in which every
+episode yields a feasible plan, every Pareto-optimal plan is reachable, and an episode has as many
+decisions as the plan has orders (\cref{sec:mdp}). We verify the second property exhaustively on
+small instances.
+\item A preference-conditioned policy with a class head and a pointer-style event head, trained by
+REINFORCE with a shared per-instance baseline on weighted Tchebycheff rewards normalised by the
+exact ideal and nadir points (\cref{sec:policy}).
+\item An evaluation protocol in which every (instance, preference) pair is scored by its regret
+to the exact optimum of the same scalarisation, on held-out synthetic instances and on 700
+real-demand instances (\cref{sec:design,sec:results}).
+\item An ablation against the standard per-period quantity formulation at equal iterations and at
+equal training time, isolating the value of the structural action space (\cref{sec:ablation}).
+\item An honest account of when learning pays off and when the exact method should be used
+instead (\cref{sec:discussion}).
+\end{enumerate}
+
+% =====================================================================================
+\section{Related work}\label{sec:related}
+
+\paragraph{Pareto set learning.}
+\citet{Lin2022PSL} train a single attention model conditioned on a preference vector with a
+multiobjective variant of POMO \citep{Kwon2020POMO}; the approach is a learning counterpart of
+decomposition-based evolutionary search \citep{ZhangLi2007MOEAD}. Later work improves diversity
+and geometry of the learned front \citep{Chen2023NHDE,Lu2024GAPL}. Because the benchmark problems
+are NP-hard and large, these studies measure hypervolume relative to the best known approximate
+front. Our problem is different in two respects: its exact front is computable, and its
+constructive decisions can be restricted by theory without loss of optimality.
+
+\paragraph{Reinforcement learning for lot sizing and inventory control.}
+\citet{Gijsbrechts2022MSOM} and the roadmap of \citet{Boute2022Roadmap} establish deep
+reinforcement learning as a credible tool for inventory problems. For lot sizing,
+\citet{Dehaybe2024} train agents on randomly generated environments that generalise to
+non-stationary demand, \citet{vanHezewijk2023,vanHezewijk2025} address the capacitated multi-item
+case, and \citet{Felizardo2024} the discrete lot-sizing problem on parallel machines. All of these
+optimise a single cost, and all act on per-period quantities. Multiobjective supply chain studies
+\citep{Kotecha2025MORSE,Rachman2025} combine reinforcement learning with evolutionary search and
+report hypervolume without an exact reference.
+
+\paragraph{Exact multiobjective methods.}
+The companion paper computes the exact four-objective front by a label-setting dynamic programme
+in the tradition of multicriteria shortest paths \citep{Martins1984,SedenoNoda2019,Maristany2021};
+we use it here as an oracle, not as a competitor, except in the timing comparison of
+\cref{sec:discussion}.
+
+% =====================================================================================
+\section{Model and exact reference}\label{sec:model}
+
+We use the model and notation of the companion paper. An instance is a demand forecast
+$D_1,\dots,D_T$ with standard deviation $\sigma$, lead time $L$, order lattice step $r$ and
+minimum order quantity, purchase price $p$, ordering cost $c$, holding rate $h$ and service
+target. A plan fixes a safety strategy, summarised by its requirement class (the service level
+$\CSL=\Phi(B/\sigma)$ is determined by the class), and an order schedule; the four objectives are
+$\POC$ and $\HC$ (minimised) and $\CSL$ and $\ITO$ (maximised). The exact front $\mathcal{F}$ of
+an instance, its ideal point $z^{\mathrm{I}}$ and nadir point $z^{\mathrm{N}}$ are computed once
+per instance by the companion algorithm.
+
+\paragraph{Scalarisation and regret.}
+For a preference $\lambda$ in the unit simplex and the minimisation vector
+$f=(\POC,\HC,-\CSL,-\ITO)$ we use the normalised weighted Tchebycheff function
+\begin{equation}
+g(f\mid\lambda)=\max_{i}\ \lambda_i\,\frac{f_i-z^{\mathrm{I}}_i}{\rho_i},\qquad
+\rho_i=\max\bigl(z^{\mathrm{N}}_i-z^{\mathrm{I}}_i,\ 10^{-3}s_i\bigr),
+\end{equation}
+where $s_i$ is a natural scale of objective $i$ for the instance (purchase value of total demand
+plus ordering cost for $\POC$, holding cost of total demand over the horizon for $\HC$, one for
+$\CSL$, and a turnover scale for $\ITO$). The floor matters only when an objective is constant on
+the front, e.g.\ when every Pareto plan has $\CSL=1$ or when initial stock covers the whole
+horizon so that $\POC=0$ on the front. The regret of a plan with objective vector $f$ is
+\begin{equation}
+\mathrm{reg}(f\mid\lambda)=g(f\mid\lambda)-\min_{q\in\mathcal{F}}g(q\mid\lambda)\ \ge 0,
+\end{equation}
+and is zero exactly when the plan is optimal for the scalarisation. Since every
+Pareto-optimal point minimises $g$ for some $\lambda$, regret over a grid of preferences measures
+both convergence and coverage.
+
+% =====================================================================================
+\section{An order-event Markov decision process}\label{sec:mdp}
+
+The order-event theorem of the companion paper states that, within a requirement class, an order
+placed in period $\tau$ before the next order in period $\tau'$ can be restricted to the least
+feasible lattice level $X_0=\max(\lceil N\rceil_r, x'+\mathrm{moq})$ together with a short list of
+exceptional levels that are needed only while the projected stock at $\tau'$ would fall below the
+positivity threshold. We turn this into a Markov decision process.
+
+\paragraph{States and actions.}
+The first decision selects a requirement class. Thereafter a state is
+$(\tau,x,k,W,R)$: the current order period, the cumulative quantity before the order, the number
+of orders so far, and the accumulated holding and turnover terms. An action is a pair
+$(\tau',X)$ consisting of the next order period and the level reached by the current order, drawn
+from the levels permitted by the theorem; $\tau'=T'+1$ ends the episode. Before the first order,
+actions choose the length of the order-free prefix. Objective increments are additive, so the
+final objective vector is available when the episode ends.
+
+\begin{proposition}\label{prop:mdp}
+(i) Every episode of the order-event process ends in a feasible plan. (ii) Every Pareto-optimal
+plan of the instance is the outcome of some episode. (iii) An episode has one decision per order
+plus two.
+\end{proposition}
+
+Part (i) holds because every action satisfies the requirement, positivity and lattice constraints
+of the periods it covers; (iii) is immediate. Part (ii) follows from the order-event theorem and
+the class-dominance corollary of the companion paper. We also verified (ii) computationally: on
+small instances, exhaustive enumeration of all episodes reproduces the exact front point for point
+(\cref{tab:check}).
+
+\begin{table}[t]\centering
+\caption{Exhaustive check of \cref{prop:mdp}(ii): all episodes of the order-event process were
+enumerated and filtered for non-dominance.}\label{tab:check}
+\tabin{check.tex}
+\end{table}
+
+\paragraph{The per-period alternative.}
+The usual formulation in reinforcement learning for lot sizing lets the agent choose, in every
+period, either no order or an order quantity from a discretised set
+\citep{Gijsbrechts2022MSOM,Dehaybe2024,vanHezewijk2023}. For the ablation we implement this
+formulation on the same model: in period $u$ the agent may skip (if the current level remains
+feasible) or raise the cumulative quantity to one of 24 lattice levels starting from the least
+feasible one; infeasible actions are masked, so every episode is again a feasible plan, mapped
+onto the same objectives. Episodes then have $T'$ decisions regardless of the number of orders.
+
+% =====================================================================================
+\section{Policy and training}\label{sec:policy}
+
+\paragraph{Architecture.}
+The policy has two heads, each a multilayer perceptron applied to every candidate and followed by
+a softmax over candidates, in the manner of pointer networks. The class head scores requirement
+classes from nine features (normalised service buffer, service level, mean and maximum
+requirement, share of periods with positive requirement, and the preference). The event head
+scores each candidate $(\tau',X)$ from 23 features describing the state (time, cumulative
+quantity, orders, accumulated terms), the candidate (horizon covered, level, order size, cost
+increments, slack to the requirement, terminal flag) and the preference. All quantities are
+normalised by instance scales, so that one network serves instances of very different magnitude.
+The heads have two hidden layers of 64 and 96 units with $\tanh$ activations.
+
+\paragraph{Training.}
+For a batch of (instance, preference) pairs, with preferences drawn uniformly from the simplex,
+we sample $K=8$ episodes per pair and use the reward $-g(f\mid\lambda)$. Following POMO
+\citep{Kwon2020POMO,Lin2022PSL}, the baseline is the mean reward of the $K$ episodes of the same
+pair, and advantages are standardised within the group; the gradient is the REINFORCE estimator
+\citep{Williams1992}, applied with Adam \citep{KingmaBa2015} at learning rate $10^{-3}$ and
+gradient-norm clipping. The whole implementation, including backpropagation, is written in C++
+with OpenMP and verified against finite differences (maximum deviation $\approx10^{-10}$).
+
+\paragraph{Training distribution.}
+Training instances are generated with $T=48$, mean demand log-uniform on $[1,200]$, coefficient
+of variation in $[0.1,1]$, lead time 1--5, lattice step and minimum order tied to mean demand,
+price log-uniform, holding rate proportional to price, ordering cost scattered around the EOQ
+balance, and three demand regimes: stationary (60\%), intermittent (20\%) and seasonal (20\%).
+The pool contains 2000 training and 300 held-out instances, each with its exact front.
+
+% =====================================================================================
+\section{Experimental design}\label{sec:design}
+
+\paragraph{Instances.}
+Held-out synthetic instances come from the same generator with disjoint seeds. Real instances are
+the 700 benchmark instances of the companion paper, built from the M5 \citep{Makridakis2022M5}
+and Online Retail II \citep{Chen2012Retail} data across the Syntetos--Boylan demand classes
+\citep{SyntetosBoylan2005}; their exact fronts are taken from the companion runs. The policy never
+sees real data during training.
+
+\paragraph{Preferences and metrics.}
+Each instance is evaluated on the 84 preferences of the simplex lattice with step $1/6$. For every
+pair we record the regret of the greedy decoding, of the best of greedy decoding and 16 sampled
+episodes, and of the baseline below; we report median, mean, 90th percentile and maximum, and the
+share of pairs whose plan lies on the exact front within the tolerances of the companion paper.
+Inference times are measured on one thread.
+
+\paragraph{Baseline.}
+A greedy constructive heuristic enumerates all requirement classes and, within each, repeatedly
+chooses the candidate whose cost increment per covered period, weighted by the preference and
+normalised by the front ranges, is smallest; the best class under $g$ is returned. It uses the exact ideal and nadir points,
+which favours it.
+
+\paragraph{Hardware and software.}
+All runs used one laptop (\Rv{CPU}, 9 threads) and GCC \Rv{GCC} with options \texttt{-O3} and \texttt{-march=native} and
+OpenMP. Training of the main policy took \Rv{TrainHours} hours.
+
+% =====================================================================================
+\section{Results}\label{sec:results}
+
+\subsection{Held-out synthetic instances}
+\begin{table}[t]\centering
+\caption{Regret to the exact optimum on \Rv{SynN} held-out synthetic instances
+($\Rv{SynPairs}$ instance--preference pairs).}\label{tab:syn}
+\tabin{syn.tex}
+\end{table}
+
+\Cref{tab:syn} reports the regret on the held-out synthetic instances. With greedy decoding the
+policy attains a median regret of 0.0215 and a 90th percentile of 0.096, against 0.0375 and 0.282
+for the greedy heuristic; best-of-17 sampling halves the median to 0.0107. The policy is within
+0.05 of the optimum on 75.6\% of the pairs (85.1\% with sampling) against 55.6\% for the
+heuristic, and it fails badly (regret above 0.5) on 0.39\% of the pairs against 2.28\%
+(\cref{tab:dist}). The heuristic, however, is exactly optimal more often (11.6\% against 5.9\%):
+enumerating every class and choosing the cheapest increments recovers the extreme plans, while the
+policy is usually close to, but not exactly at, the optimum. Its maximum regret (1.38) also exceeds
+that of the heuristic (0.78); the worst cases are concentrated on a few instances with a narrow
+front in one objective, where the normalisation magnifies small deviations.
+
+\begin{table}[t]\centering
+\caption{Distribution of regret (shares of instance--preference pairs).}\label{tab:dist}
+\tabin{dist.tex}
+\end{table}
+
+
+
+\subsection{Real demand: M5 and Online Retail II}
+\begin{table}[t]\centering
+\caption{Regret to the exact optimum on the \Rv{RealN} real-demand instances of the companion
+paper; the policy was trained on synthetic instances only.}\label{tab:real}
+\tabin{real.tex}
+\end{table}
+
+On the 700 real instances (\cref{tab:real}) the policy, trained on synthetic data only, keeps
+its advantage: median regret 0.0318 against 0.0438 for the heuristic (0.0153 with sampling),
+90th percentile 0.219 against 0.338, and 62.4\% of pairs within 0.05 of the optimum against
+52.5\%. The share of severe failures is the same for both (4.75\% and 4.73\%) and higher than on
+synthetic data; it comes from real series whose fronts are very narrow in service level, so that
+choosing a lower service class costs hundreds of front ranges. For this reason we report medians,
+percentiles and failure shares rather than means for the real data. The gain is larger on the M5
+series (median 0.0302) than on the Online Retail series (0.0445), whose lumpy demand is less well
+represented by the training generator.
+
+\subsection{Action-space ablation}\label{sec:ablation}
+\begin{table}[t]\centering
+\caption{Order events versus per-period quantities: same pool, network, batch and optimiser;
+compared at equal iterations (5000) and at equal training time.}\label{tab:abl}
+\tabin{ablation.tex}
+\end{table}
+
+\Cref{tab:abl} compares the two action spaces. Training on per-period quantities takes 1.44 times
+longer for the same 5000 iterations, and greedy decoding is 1.3--1.6 times slower at inference
+(26.1 against 19.8\,ms per preference on synthetic instances, 21.4 against 13.0\,ms on real ones),
+because an episode has one decision per period instead of one per order. At equal iterations the
+order-event policy has the lower median (0.0215 against 0.0262 on synthetic, 0.0318 against
+0.0353 on real data), the lower 90th percentile (0.096 against 0.127; 0.219 against 0.284), fewer
+severe failures (0.39\% against 1.10\%; 4.75\% against 6.85\%) and a three times smaller worst case
+on synthetic data. At equal training time the gap widens (median 0.0352 and 0.0457 for the
+quantity policy).
+
+The quantity policy nevertheless reaches the exact front more often (23--29\% of pairs against
+10--12\%), and \cref{tab:pref} shows where: at the vertices of the preference simplex its median
+regret is zero, i.e.\ it learns to produce the extreme plans exactly, whereas on edge and interior
+preferences, which make up 95\% of the grid, the order-event policy is better. The two action
+spaces therefore differ not only in how large their errors are but in where they make them. On the
+100 Online Retail instances the quantity policy is better also in median (0.0292 against 0.0445),
+and with best-of-17 sampling its share of severe failures on real data is slightly lower (2.29\%
+against 2.87\%). We read these results as a consistent advantage of the order-event space in
+typical and tail regret and in computational cost, not as dominance in every statistic.
+
+\begin{table}[t]\centering
+\caption{Median regret (greedy decoding) by preference type: vertex (one non-zero weight), edge
+(two) and interior (three or four).}\label{tab:pref}
+\tabin{preftype.tex}
+\end{table}
+
+\begin{figure}[t]\centering
+\figin{0.8\textwidth}{fig_learning.pdf}
+\caption{Training curves of the two action spaces against wall-clock time.}\label{fig:learning}
+\end{figure}
+
+% =====================================================================================
+\section{When does learning pay off?}\label{sec:discussion}
+
+The exact algorithm returns the whole front at once; the policy returns one plan per preference.
+On the real instances the median exact computation takes \Rv{RealExactMed}\,s for the full front,
+while the policy needs \Rv{RealDecMs}\,ms for one preference with greedy decoding and
+\Rv{RealPolMs}\,ms with 16 samples. For a decision maker exploring a few dozen preferences on a
+typical real series, the exact method is therefore both faster and optimal. The policy pays off
+on hard instances, where exact computation takes up to \Rv{SynExactMax}\,s (90th percentile
+\Rv{SynExactP}\,s on the synthetic pool), on large item portfolios that are re-planned frequently,
+and as a component of models for which exact fronts are no longer computable, such as multi-item
+problems with shared capacity \citep{Kania2024DESMILS}. In all cases the exact method remains the
+reference that certifies the quality of the learned plans.
+
+% =====================================================================================
+\section{Conclusion}\label{sec:conclusion}
+We trained a single preference-conditioned policy for the four-objective lot-sizing model and
+measured it, pair by pair, against exact Pareto fronts. Trained only on synthetic instances, it
+answers any preference in about 13--20\,ms with a median regret of 0.02--0.03 in normalised
+Tchebycheff units on held-out synthetic and on real M5 and Online Retail instances, and reduces
+the 90th percentile of the regret of a greedy constructive heuristic by 35--66\%. Building the action space on the order-event theorem of the
+companion paper makes learning faster and the policy more accurate in typical and tail regret than
+the per-period formulation that is standard in reinforcement learning for inventory, which in turn
+is better at reproducing extreme plans exactly. The exact method remains indispensable: it
+certifies the regret of every learned plan and, for small real instances, is itself the faster
+way to the whole front.
+
+Three directions follow. The policy is usually near-optimal but rarely exactly optimal; combining
+it with the exact algorithm, for instance by letting the policy select a few requirement classes
+and solving the inner problem exactly for those classes only, may close the remaining gap at a
+fraction of the cost of the full front. A training distribution closer to lumpy retail demand
+should reduce the gap observed on the Online Retail series. Finally, the multi-item setting of
+\citet{Kania2024DESMILS}, where exact fronts are out of reach, is the natural next domain, with
+the single-item exact method serving as a component and a benchmark.
+
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{refs}
+\end{document}
